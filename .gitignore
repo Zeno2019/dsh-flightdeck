@@ -1,0 +1,15 @@
+node_modules/
+out/
+dist/
+dist-dev/
+coverage/
+
+.env
+.env.*
+!.env.example
+
+*.log
+.DS_Store
+
+.omo/
+.pi/

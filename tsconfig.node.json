@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["electron.vite.config.ts", "src/**/*.ts", "test/**/*.ts"],
+  "compilerOptions": {
+    "types": ["node", "electron-vite/node", "vitest/globals"]
+  }
+}
