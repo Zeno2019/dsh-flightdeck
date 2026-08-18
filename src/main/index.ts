@@ -11,6 +11,15 @@ import type { AppSecurityPolicy } from "./security-policy.js";
 const APP_ID = "dev.zeno.dsh-flightdeck" as const;
 const APP_TITLE = "DSH Flightdeck" as const;
 
+// CI and portable use: point the whole per-user state tree (userData ->
+// launch/, harness/, logs/) at an explicit directory before any Electron
+// path is resolved. The packaged smoke uses this so the unpacked and the
+// installed phases cannot collide on the same DSH_HOME.
+const userDataOverride = process.env["DSH_FLIGHTDECK_USER_DATA"]?.trim();
+if (userDataOverride !== undefined && userDataOverride !== "") {
+  app.setPath("userData", userDataOverride);
+}
+
 type ShellPhase = "starting" | "ready" | "quitting";
 
 let mainWindow: BrowserWindow | null = null;

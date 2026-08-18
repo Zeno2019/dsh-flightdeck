@@ -1,13 +1,21 @@
+import { writeSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-function markFatal(eventName) {
-  console.error(`[desktop-runtime] ${eventName}`);
+function describeFailure(eventName, failure) {
+  const detail = failure instanceof Error ? (failure.stack ?? `${failure.name}: ${failure.message}`) : String(failure);
+  return `[desktop-runtime] ${eventName}${detail === "" ? "" : `: ${detail}`}`;
+}
+
+function markFatal(eventName, failure) {
+  // writeSync: pending async stderr writes are lost when process.exit runs,
+  // and the packaged smoke gate depends on this line reaching the log.
+  writeSync(2, `${describeFailure(eventName, failure)}\n`);
   process.exitCode = 1;
   setImmediate(() => process.exit(1));
 }
 
-process.on("uncaughtException", () => markFatal("uncaughtException"));
-process.on("unhandledRejection", () => markFatal("unhandledRejection"));
+process.on("uncaughtException", (error) => markFatal("uncaughtException", error));
+process.on("unhandledRejection", (reason) => markFatal("unhandledRejection", reason));
 
 const dshBin = process.argv[2];
 process.argv = [...process.argv.slice(0, 2), ...process.argv.slice(3)];

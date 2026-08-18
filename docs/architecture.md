@@ -15,7 +15,7 @@ The main process spawns a dedicated Node binary, never the Electron executable. 
 - Bundled node: `node_modules/node/bin/node` (or `node.exe` on Windows).
 - Runtime entry: `build/runtime-node-entry.mjs` in development, the `resources` copy after packaging.
 - DSH bin: `node_modules/@deepseek-ai/dsh/lib/bin.js`.
-- The runtime entry logs `[desktop-runtime]` diagnostics and marks the process fatal on `uncaughtException` or `unhandledRejection`.
+- The runtime entry logs `[desktop-runtime]` diagnostics and marks the process fatal on `uncaughtException` or `unhandledRejection`, writing the failure reason synchronously to stderr so it survives `process.exit`.
 
 ## Reserved port flow
 
@@ -77,7 +77,15 @@ All runtime state lives under the Electron user data directory (`app.getPath("us
 | `<userData>/harness` | `DSH_HOME` for the DSH child |
 | `<userData>/logs/harness.log` | Append-mode log for child stdout, stderr, and harness lines |
 
+Before the app is ready, a non-empty `DSH_FLIGHTDECK_USER_DATA` environment variable overrides that directory (`app.setPath("userData", ...)`). The packaged smoke sets one per phase, so the unpacked and installed executions can never share `DSH_HOME`, logs, or junctions. It also serves portable installations.
+
 The child is spawned with `windowsHide: true`, piped stdio, `NO_COLOR=1`, and `ELECTRON_RUN_AS_NODE` removed from the environment. Output is written to the log file and a bounded ring of the most recent 200 lines.
+
+## Vendored dependency repair
+
+`@deepseek-ai/dsh@0.1.0-rc.7` maintains `$DSH_HOME/profiles/node_modules` with NTFS directory junctions on Windows. Its `ensureSymlink` decided link ownership with `lstatSync(...).isSymbolicLink()` and removed links with `unlinkSync`, but junctions are reported as directories (not symlinks) and cannot be unlinked — so re-pointing the fallback after an installation move crashed the child with `uncaughtException`.
+
+`patches/@deepseek-ai+dsh-app-boot+0.1.0-rc.7.patch` repairs `ensureSymlink`: junctions are recognized via `readlinkSync`, compared with NT-prefix tolerance, and removed with `rmdirSync` (which deletes the reparse point, never the target). The `postinstall` script (`patch-package`) reapplies the patch on every clean install, and `test/profile-fallback.test.ts` exercises create/idempotent-heal/re-point/real-directory rejection on the CI platform.
 
 ## Startup and shutdown
 

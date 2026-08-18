@@ -1,0 +1,79 @@
+diff --git a/node_modules/@deepseek-ai/dsh-app-boot/lib/index.js b/node_modules/@deepseek-ai/dsh-app-boot/lib/index.js
+index 3a53e81..8e63263 100644
+--- a/node_modules/@deepseek-ai/dsh-app-boot/lib/index.js
++++ b/node_modules/@deepseek-ai/dsh-app-boot/lib/index.js
+@@ -1,6 +1,6 @@
+ import { createRequire } from "node:module";
+ import { fileURLToPath, pathToFileURL } from "node:url";
+-import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
++import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+ import { parseEnv } from "node:util";
+ import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
+ import * as yaml from "js-yaml";
+@@ -367,6 +367,46 @@ function initProfile(dir, bundles) {
+ 	const workspacePath = join(dir, "pnpm-workspace.yaml");
+ 	if (!existsSync(workspacePath)) writeFileSync(workspacePath, PROFILE_PNPM_WORKSPACE);
+ }
++/**
++* The fallback links are created with type "junction". Windows NTFS
++* junctions are reparse points that Node's lstat reports as directories,
++* not symbolic links, so ownership must be decided with readlink instead
++* of isSymbolicLink alone (a real directory has no readable link target).
++*/
++function isManagedFallbackLink(link, stat) {
++	if (stat.isSymbolicLink()) return true;
++	if (process.platform !== "win32" || !stat.isDirectory()) return false;
++	try {
++		readlinkSync(link);
++		return true;
++	} catch {
++		return false;
++	}
++}
++/**
++* Compare a stored link target with the wanted target, tolerating the
++* NT namespace prefixes Windows junctions surface through readlink.
++*/
++function sameFallbackLinkTarget(actual, wanted) {
++	if (actual === wanted) return true;
++	if (process.platform !== "win32") return false;
++	const normalize = (value) => {
++		for (const prefix of ["\\\\?\\", "\\??\\"]) {
++			if (value.startsWith(prefix)) return value.slice(prefix.length).toLowerCase();
++		}
++		return value.toLowerCase();
++	};
++	return normalize(actual) === normalize(wanted);
++}
++/**
++* Remove a managed fallback link. Directory junctions cannot be removed
++* with unlinkSync on Windows; rmdirSync removes the reparse point itself
++* and never recurses into the target.
++*/
++function removeFallbackLink(link, stat) {
++	if (process.platform === "win32" && stat.isDirectory() && !stat.isSymbolicLink()) rmdirSync(link);
++	else unlinkSync(link);
++}
+ /** Ensure `link` is a symlink to `target`, replacing a wrong or dangling link; a real directory throws. */
+ function ensureSymlink(link, target) {
+ 	let stat;
+@@ -376,15 +416,15 @@ function ensureSymlink(link, target) {
+ 		stat = void 0;
+ 	}
+ 	if (stat !== void 0) {
+-		if (!stat.isSymbolicLink()) throw new Error(`dsh: ${link} exists and is not a symlink; remove it so dsh can manage the installation fallback`);
+-		if (readlinkSync(link) === target) return;
+-		unlinkSync(link);
++		if (!isManagedFallbackLink(link, stat)) throw new Error(`dsh: ${link} exists and is not a symlink; remove it so dsh can manage the installation fallback`);
++		if (sameFallbackLinkTarget(readlinkSync(link), target)) return;
++		removeFallbackLink(link, stat);
+ 	}
+ 	try {
+ 		symlinkSync(target, link, "junction");
+ 	} catch (error) {
+ 		/* v8 ignore next 4 */
+-		if (error.code !== "EEXIST" || !lstatSync(link).isSymbolicLink() || readlinkSync(link) !== target) throw error;
++		if (error.code !== "EEXIST" || !isManagedFallbackLink(link, lstatSync(link)) || !sameFallbackLinkTarget(readlinkSync(link), target)) throw error;
+ 	}
+ }
+ /**

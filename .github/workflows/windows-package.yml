@@ -36,19 +36,22 @@ jobs:
           function Invoke-PackagedSmoke {
             param(
               [Parameter(Mandatory)] [string] $Name,
-              [Parameter(Mandatory)] [string] $ExecutablePath
+              [Parameter(Mandatory)] [string] $ExecutablePath,
+              [Parameter(Mandatory)] [string] $UserDataDirectory
             )
 
             $baselineNodePids = @(
               Get-Process -Name "node" -ErrorAction SilentlyContinue |
                 Select-Object -ExpandProperty Id
             )
-            $logDirectory = Join-Path $env:APPDATA "DSH Flightdeck\logs"
+            $logDirectory = Join-Path $UserDataDirectory "logs"
             $logFile = Join-Path $logDirectory "harness.log"
-            Remove-Item -Path $logDirectory -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path $UserDataDirectory -Recurse -Force -ErrorAction SilentlyContinue
 
+            $previousUserDataOverride = $env:DSH_FLIGHTDECK_USER_DATA
             $appProcess = $null
             try {
+              $env:DSH_FLIGHTDECK_USER_DATA = $UserDataDirectory
               $resolvedExecutable = (Resolve-Path $ExecutablePath).Path
               $appProcess = Start-Process `
                 -FilePath $resolvedExecutable `
@@ -97,6 +100,8 @@ jobs:
                 throw "$Name log contains a fatal marker"
               }
             } finally {
+              $env:DSH_FLIGHTDECK_USER_DATA = $previousUserDataOverride
+
               if ($null -ne $appProcess -and -not $appProcess.HasExited) {
                 [void] $appProcess.CloseMainWindow()
                 if (-not $appProcess.WaitForExit(10000)) {
@@ -126,7 +131,11 @@ jobs:
           }
 
           Write-Host "::notice::Reduced smoke gate: HTTP 2xx readiness only; keyless DSH RPC is not exercised."
-          Invoke-PackagedSmoke -Name "win-unpacked" -ExecutablePath "dist/win-unpacked/DSH Flightdeck.exe"
+          Write-Host "::notice::Each smoke phase uses an isolated user-data directory so the two phases never share DSH_HOME."
+          Invoke-PackagedSmoke `
+            -Name "win-unpacked" `
+            -ExecutablePath "dist/win-unpacked/DSH Flightdeck.exe" `
+            -UserDataDirectory (Join-Path $env:RUNNER_TEMP "dsh-flightdeck-smoke-win-unpacked")
 
           $setupExecutables = @(Get-ChildItem -Path "dist" -Filter "*-setup.exe" -File)
           if ($setupExecutables.Count -ne 1) {
@@ -149,7 +158,10 @@ jobs:
           }
 
           $installedExecutable = Join-Path $installDirectory "DSH Flightdeck.exe"
-          Invoke-PackagedSmoke -Name "installed" -ExecutablePath $installedExecutable
+          Invoke-PackagedSmoke `
+            -Name "installed" `
+            -ExecutablePath $installedExecutable `
+            -UserDataDirectory (Join-Path $env:RUNNER_TEMP "dsh-flightdeck-smoke-installed")
       - name: Upload unsigned NSIS setup
         uses: actions/upload-artifact@v4
         with:

@@ -62,14 +62,31 @@ describe("package.json", () => {
     // Given: the parsed package.json
     const pkg = parsePackageJson(await readRepositoryFile("package.json"));
 
-    // When: the six devDependencies are read
-    // Then: each resolves to its exact section 5.1 version
+    // When: the seven devDependencies are read
+    // Then: each resolves to its exact section 5.1 version plus the patch runner
     expect(requiredString(pkg.devDependencies, "electron")).toBe("43.4.0");
     expect(requiredString(pkg.devDependencies, "electron-builder")).toBe("26.15.3");
     expect(requiredString(pkg.devDependencies, "electron-vite")).toBe("5.0.0");
+    expect(requiredString(pkg.devDependencies, "patch-package")).toBe("8.0.1");
     expect(requiredString(pkg.devDependencies, "typescript")).toBe("5.9.3");
     expect(requiredString(pkg.devDependencies, "vitest")).toBe("4.1.10");
     expect(requiredString(pkg.devDependencies, "@types/node")).toBe("24.10.1");
+  });
+
+  it("reinstalls the Windows junction repair through a pinned patch-package postinstall", async () => {
+    // Given: the parsed package.json and the patches directory
+    const pkg = parsePackageJson(await readRepositoryFile("package.json"));
+    const patchFiles = await readdir(join(REPOSITORY_ROOT, "patches"));
+    const patchPath = patchFiles.find((name) => name.startsWith("@deepseek-ai+dsh-app-boot+0.1.0-rc.7"));
+    expect(patchPath).toBeDefined();
+    const patch = await readRepositoryFile(join("patches", patchPath ?? "missing.patch"));
+
+    // When: the repair seam is inspected
+    // Then: postinstall applies it and the patch replaces junction-incompatible removal
+    expect(requiredString(pkg.scripts, "postinstall")).toBe("patch-package");
+    expect(patch).toContain("rmdirSync");
+    expect(patch).toContain("junction");
+    expect(patch).toContain("isManagedFallbackLink");
   });
 
   it("declares no auto-update dependency", async () => {
@@ -222,7 +239,7 @@ describe(".github/workflows/windows-package.yml", () => {
     }
   });
 
-  it("smokes unpacked and silently installed applications without owning pre-existing Node processes", async () => {
+  it("smokes unpacked and silently installed applications in isolated user-data directories", async () => {
     // Given: the Windows package workflow smoke implementation
     const workflow = await readRepositoryFile(".github/workflows/windows-package.yml");
 
@@ -242,6 +259,12 @@ describe(".github/workflows/windows-package.yml", () => {
     expect(workflow).toContain("$baselineNodePids");
     expect(workflow).toContain("-notin $baselineNodePids");
     expect(workflow).toContain('@("/S", "/D=$installDirectory")');
+
+    // Then: each phase overrides userData so the two phases can never share DSH_HOME state
+    expect(workflow).toContain("$env:DSH_FLIGHTDECK_USER_DATA = $UserDataDirectory");
+    expect(workflow).toContain('$env:DSH_FLIGHTDECK_USER_DATA = $previousUserDataOverride');
+    expect(workflow).toContain("dsh-flightdeck-smoke-win-unpacked");
+    expect(workflow).toContain("dsh-flightdeck-smoke-installed");
   });
 
   it("uploads one setup with strict absence handling and no distribution authority", async () => {
@@ -292,5 +315,14 @@ describe("src navigation security contracts", () => {
 
     // Then: no webview embedding is possible in the primary window
     expect(index).toContain("webviewTag: false");
+  });
+
+  it("overrides the Electron userData directory through an explicit environment variable", async () => {
+    // Given: the main-process entry
+    const index = await readRepositoryFile("src/main/index.ts");
+
+    // Then: the override is applied before readiness so the smoke can isolate DSH_HOME per phase
+    expect(index).toContain("DSH_FLIGHTDECK_USER_DATA");
+    expect(index).toContain('app.setPath("userData", userDataOverride)');
   });
 });

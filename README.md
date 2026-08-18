@@ -10,7 +10,9 @@ The runtime inputs are pinned exactly in `package.json` and `package-lock.json`:
 - `node` 24.19.0 (bundled platform Node binary)
 - `ts-pattern` 5.9.0
 
-Development toolchain: electron 43.4.0, electron-builder 26.15.3, electron-vite 5.0.0, typescript 5.9.3, vitest 4.1.10, @types/node 24.10.1.
+Development toolchain: electron 43.4.0, electron-builder 26.15.3, electron-vite 5.0.0, patch-package 8.0.1, typescript 5.9.3, vitest 4.1.10, @types/node 24.10.1.
+
+`patch-package` reapplies `patches/@deepseek-ai+dsh-app-boot+0.1.0-rc.7.patch` on install: it repairs the DSH profile module-fallback so Windows NTFS directory junctions are recognized and removed with `rmdirSync` instead of `unlinkSync`.
 
 ## Prerequisites
 
@@ -35,7 +37,7 @@ Both packaging commands are Windows-x64-only. The NSIS installer is unsigned, so
 
 ## Windows smoke workflow
 
-`.github/workflows/windows-package.yml` runs on `workflow_dispatch`. It builds the installer, then smokes both the unpacked and the silently installed application: it discovers the DSH loopback endpoint from the harness log, polls HTTP 2xx, closes the app gracefully, and verifies no DSH Node process remains. This workflow has not been executed or proven in this local macOS session.
+`.github/workflows/windows-package.yml` runs on `workflow_dispatch`. It builds the installer, then smokes both the unpacked and the silently installed application: each phase gets its own user-data directory (`DSH_FLIGHTDECK_USER_DATA`), the workflow discovers the DSH loopback endpoint from the harness log, polls HTTP 2xx, closes the app gracefully, and verifies no DSH Node process remains. This workflow has not been executed or proven in this local macOS session.
 
 ## Project structure
 
@@ -51,6 +53,8 @@ dsh-flightdeck/
     architecture.md
     engineering-initialization-v0.0.1.md
     testing.md
+  patches/
+    @deepseek-ai+dsh-app-boot+0.1.0-rc.7.patch
   scripts/
     verify-target.mjs
   src/
@@ -64,8 +68,10 @@ dsh-flightdeck/
     shared/
       contracts.ts
   test/
+    profile-fallback.test.ts
     repository-contract.test.ts
     repository-reader.ts
+    runtime-entry.test.ts
     runtime.test.ts
     security-policy.test.ts
   electron.vite.config.ts
