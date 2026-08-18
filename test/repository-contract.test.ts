@@ -35,6 +35,18 @@ describe("package.json", () => {
     expect(pkg.main).toBe("./out/main/index.js");
   });
 
+  it("keeps the Electron and builder product names aligned", async () => {
+    // Given: the package metadata consumed by Electron and electron-builder
+    const pkg = parsePackageJson(await readRepositoryFile("package.json"));
+
+    // When: both product-name sources are read
+    const builderProductName = readString(pkg.build, "productName");
+
+    // Then: Electron derives the same packaged userData directory expected by the builder contract
+    expect(pkg.productName).toBe("DSH Flightdeck");
+    expect(pkg.productName).toBe(builderProductName);
+  });
+
   it("pins the exact runtime dependencies", async () => {
     // Given: the parsed package.json
     const pkg = parsePackageJson(await readRepositoryFile("package.json"));

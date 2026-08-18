@@ -1,5 +1,6 @@
 {
   "name": "dsh-flightdeck",
+  "productName": "DSH Flightdeck",
   "version": "0.0.1",
   "private": true,
   "type": "module",

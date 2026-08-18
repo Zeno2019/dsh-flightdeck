@@ -2,6 +2,7 @@ export type JsonObject = Readonly<Record<string, unknown>>;
 
 export type PackageJson = {
   readonly name: string;
+  readonly productName: string | undefined;
   readonly version: string;
   readonly private: boolean;
   readonly type: string;
@@ -27,6 +28,12 @@ export function readString(record: JsonObject, key: string): string {
   const value = record[key];
   if (typeof value !== "string") throw new TypeError(`expected ${key} to be a string`);
   return value;
+}
+
+export function readOptionalString(record: JsonObject, key: string): string | undefined {
+  const value = record[key];
+  if (value === undefined || typeof value === "string") return value;
+  throw new TypeError(`expected ${key} to be a string`);
 }
 
 export function readBoolean(record: JsonObject, key: string): boolean {
@@ -73,6 +80,7 @@ export function parsePackageJson(raw: string): PackageJson {
   if (!isRecord(parsed)) throw new TypeError("package.json root is not an object");
   return {
     name: readString(parsed, "name"),
+    productName: readOptionalString(parsed, "productName"),
     version: readString(parsed, "version"),
     private: readBoolean(parsed, "private"),
     type: readString(parsed, "type"),
