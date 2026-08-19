@@ -128,7 +128,7 @@ jobs:
                   echo "::error::$name log contains a fatal marker"
                   exit 1
                 fi
-                port="$(grep -Eo '\[desktop\] endpoint http://127\.0\.0\.1:[0-9]+' "$log_file" | tail -1 | grep -Eo '[0-9]+' || true)"
+                port="$(grep -Eo '127\.0\.0\.1:[0-9]+' "$log_file" | tail -1 | cut -d: -f2 || true)"
                 if [ -n "$port" ] && curl -sf -o /dev/null "http://127.0.0.1:$port"; then
                   break
                 fi
