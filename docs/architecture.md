@@ -76,7 +76,7 @@ All runtime state lives under the Electron user data directory (`app.getPath("us
 | `<userData>/launch` | Child process working directory |
 | `<userData>/harness` | `DSH_HOME` for the DSH child |
 | `<userData>/logs/harness.log` | Append-mode log for child stdout, stderr, and harness lines |
-| `<userData>/tools` | Windows-only `pnpm.cmd` launcher, rewritten on every startup |
+| `<userData>/tools` | `pnpm`/`dsh` launchers (win32 `.cmd`, darwin POSIX shim), rewritten on every startup |
 
 Before the app is ready, a non-empty `DSH_FLIGHTDECK_USER_DATA` environment variable overrides that directory (`app.setPath("userData", ...)`). The packaged smoke sets one per phase, so the unpacked and installed executions can never share `DSH_HOME`, logs, or junctions. It also serves portable installations.
 

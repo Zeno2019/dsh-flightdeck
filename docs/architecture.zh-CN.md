@@ -78,7 +78,7 @@ harness 会输出 `[desktop] endpoint http://127.0.0.1:<port>`,用于日志与�
 | `<userData>/launch` | 子进程工作目录 |
 | `<userData>/harness` | DSH 子进程的 `DSH_HOME` |
 | `<userData>/logs/harness.log` | 追加式日志,记录子进程 stdout、stderr 与 harness 行 |
-| `<userData>/tools` | 仅 Windows:每次启动重写的 `pnpm.cmd` 启动器 |
+| `<userData>/tools` | `pnpm`/`dsh` 启动器(win32 为 `.cmd`,darwin 为 POSIX 垫片),每次启动重写 |
 
 在 app ready 之前,非空的 `DSH_FLIGHTDECK_USER_DATA` 环境变量会覆盖该目录(`app.setPath("userData", ...)`)。打包态冒烟为每个阶段各设一个,使未打包执行与安装后执行绝不共享 `DSH_HOME`、日志或 junction;它同时服务于便携安装。
 
