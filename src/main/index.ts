@@ -125,11 +125,12 @@ async function startMainShell(): Promise<void> {
   // one-click pnpm setup, and plugin installs re-invoke the DSH CLI as a
   // bare `dsh` (dshmarket's dshArgv only recognizes bin.js-shaped argv[1],
   // which the runtime-node-entry.mjs harness entry is not). Freshly written
-  // pnpm.cmd / dsh.cmd launchers pointing at the vendored node satisfy both
-  // probes on machines without any Node tooling; a write failure only means
-  // no injection, never a blocked startup.
+  // pnpm/dsh launchers (pnpm.cmd/dsh.cmd on Windows, executable sh shims on
+  // macOS) pointing at the vendored node satisfy both probes on machines
+  // without any Node tooling; a write failure only means no injection,
+  // never a blocked startup.
   const prependPathDirs: string[] = [];
-  if (process.platform === "win32") {
+  if (process.platform === "win32" || process.platform === "darwin") {
     try {
       const toolsDir = join(userData, "tools");
       const [pnpmLauncher, dshLauncher] = await Promise.all([

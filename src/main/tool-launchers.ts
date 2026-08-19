@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, writeFile } from "node:fs/promises";
 import path, { join } from "node:path";
 
 /**
@@ -16,15 +16,17 @@ import path, { join } from "node:path";
  * satisfies both probes on machines without any Node tooling.
  *
  * Each launcher targets the node binary resolved by `runtime-paths`
- * (`node_modules/node/bin/node.exe`), never `process.execPath` — inside
- * Electron that is the Electron binary itself. Launchers are rewritten on
- * every startup, so an upgraded app never leaves a stale absolute path
- * behind. Only win32 gets launchers: the product packages Windows only, and
- * dev macOS machines carry their own tooling on PATH.
+ * (`node_modules/node/bin/node.exe` on Windows, `bin/node` on macOS),
+ * never `process.execPath` — inside Electron that is the Electron binary
+ * itself. Launchers are rewritten on every startup, so an upgraded app
+ * never leaves a stale absolute path behind. Win32 and darwin both get
+ * launchers (the two packaged platforms); every other platform is a no-op.
  */
 
-const PNPM_LAUNCHER_NAME = "pnpm.cmd" as const;
-const DSH_LAUNCHER_NAME = "dsh.cmd" as const;
+const PNPM_CMD_NAME = "pnpm.cmd" as const;
+const DSH_CMD_NAME = "dsh.cmd" as const;
+const PNPM_POSIX_NAME = "pnpm" as const;
+const DSH_POSIX_NAME = "dsh" as const;
 
 /**
  * A cmd.exe launcher: UTF-8 console first (`@chcp 65001` — tool diagnostics
@@ -34,6 +36,15 @@ const DSH_LAUNCHER_NAME = "dsh.cmd" as const;
  */
 function buildCmdLauncherContent(nodeExecutable: string, entry: string): string {
   return `@chcp 65001 >nul\n@"${nodeExecutable}" "${entry}" %*\n`;
+}
+
+/**
+ * A POSIX shell launcher: the vendored node running the vendored entry with
+ * every argument forwarded. Paths are double-quoted so spaced locations
+ * ("~/Library/Application Support/DSH Flightdeck/...") survive `sh`.
+ */
+function buildPosixLauncherContent(nodeExecutable: string, entry: string): string {
+  return `#!/bin/sh\nexec "${nodeExecutable}" "${entry}" "$@"\n`;
 }
 
 /**
@@ -47,13 +58,25 @@ export function resolvePnpmEntry(appRoot: string, platform: NodeJS.Platform): st
   return p.join(appRoot, "node_modules", "pnpm", "bin", "pnpm.cjs");
 }
 
-export function buildPnpmLauncherContent(nodeExecutable: string, pnpmEntry: string): string {
-  return buildCmdLauncherContent(nodeExecutable, pnpmEntry);
+export function buildPnpmLauncherContent(
+  nodeExecutable: string,
+  pnpmEntry: string,
+  platform: NodeJS.Platform,
+): string {
+  return platform === "win32"
+    ? buildCmdLauncherContent(nodeExecutable, pnpmEntry)
+    : buildPosixLauncherContent(nodeExecutable, pnpmEntry);
 }
 
 /** Launcher for the DSH CLI entry resolved by runtime-paths (`dshBin`). */
-export function buildDshLauncherContent(nodeExecutable: string, dshBin: string): string {
-  return buildCmdLauncherContent(nodeExecutable, dshBin);
+export function buildDshLauncherContent(
+  nodeExecutable: string,
+  dshBin: string,
+  platform: NodeJS.Platform,
+): string {
+  return platform === "win32"
+    ? buildCmdLauncherContent(nodeExecutable, dshBin)
+    : buildPosixLauncherContent(nodeExecutable, dshBin);
 }
 
 interface CmdLauncherInput {
@@ -65,15 +88,23 @@ interface CmdLauncherInput {
 }
 
 /**
- * Materializes `<toolsDir>/<launcherName>` for win32 and returns its path; a
- * no-op (null) on every other platform. Failures propagate to the caller,
- * which degrades to an uninjected PATH instead of blocking startup.
+ * Materializes `<toolsDir>/<launcherName>` for win32 (cmd) and darwin
+ * (executable sh) and returns its path; a no-op (null) on every other
+ * platform. Failures propagate to the caller, which degrades to an
+ * uninjected PATH instead of blocking startup.
  */
 async function writeCmdLauncher(input: CmdLauncherInput): Promise<string | null> {
-  if (input.platform !== "win32") return null;
+  if (input.platform !== "win32" && input.platform !== "darwin") return null;
   await mkdir(input.toolsDir, { recursive: true });
   const launcherPath = join(input.toolsDir, input.launcherName);
-  await writeFile(launcherPath, buildCmdLauncherContent(input.nodeExecutable, input.entry), "utf8");
+  const content =
+    input.platform === "win32"
+      ? buildCmdLauncherContent(input.nodeExecutable, input.entry)
+      : buildPosixLauncherContent(input.nodeExecutable, input.entry);
+  await writeFile(launcherPath, content, "utf8");
+  if (input.platform === "darwin") {
+    await chmod(launcherPath, 0o755);
+  }
   return launcherPath;
 }
 
@@ -87,7 +118,7 @@ export interface PnpmLauncherInput {
 export function writePnpmLauncher(input: PnpmLauncherInput): Promise<string | null> {
   return writeCmdLauncher({
     toolsDir: input.toolsDir,
-    launcherName: PNPM_LAUNCHER_NAME,
+    launcherName: input.platform === "win32" ? PNPM_CMD_NAME : PNPM_POSIX_NAME,
     nodeExecutable: input.nodeExecutable,
     entry: input.pnpmEntry,
     platform: input.platform,
@@ -104,7 +135,7 @@ export interface DshLauncherInput {
 export function writeDshLauncher(input: DshLauncherInput): Promise<string | null> {
   return writeCmdLauncher({
     toolsDir: input.toolsDir,
-    launcherName: DSH_LAUNCHER_NAME,
+    launcherName: input.platform === "win32" ? DSH_CMD_NAME : DSH_POSIX_NAME,
     nodeExecutable: input.nodeExecutable,
     entry: input.dshBin,
     platform: input.platform,
