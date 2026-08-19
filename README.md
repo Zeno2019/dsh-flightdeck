@@ -2,6 +2,14 @@
 
 <p align="center"><img src="build/icon.png" width="128" alt="DSH Flightdeck" /></p>
 
+<p align="center">
+  <a href="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml"><img src="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <img src="https://img.shields.io/badge/version-0.1.0--rc.6-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-lightgrey" alt="Platforms" />
+</p>
+
+<p align="center">English | <a href="README.zh-CN.md">简体中文</a></p>
+
 Private thin Electron wrapper around the official DeepSeek Harness (DSH) Web UI. Electron owns the desktop window, the DSH child-process lifecycle, local readiness, logging, and Windows packaging. It does not own the DSH package graph and does not rebuild the upstream monorepo.
 
 ## Pinned versions
