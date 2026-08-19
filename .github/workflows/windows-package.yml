@@ -33,6 +33,28 @@ jobs:
           $diagnosticsDirectory = Join-Path $env:RUNNER_TEMP "dsh-flightdeck-diagnostics"
           New-Item -ItemType Directory -Path $diagnosticsDirectory -Force | Out-Null
 
+          # electron-builder's production dependency collector only walks
+          # `dependencies` chains, so peer-only DSH packages would silently
+          # vanish from the packaged app (the unpacked smoke used to pass
+          # only because Node escaped into the repository node_modules).
+          # Fail loudly here instead of as an opaque fatal marker later.
+          function Assert-PackagedRuntimeClosure {
+            param(
+              [Parameter(Mandatory)] [string] $Label,
+              [Parameter(Mandatory)] [string] $AppRoot
+            )
+
+            $repoModules = @(Get-ChildItem -Path "node_modules/@deepseek-ai" -Directory |
+              Select-Object -ExpandProperty Name)
+            $packagedModules = @(Get-ChildItem -Path (Join-Path $AppRoot "resources/app/node_modules/@deepseek-ai") -Directory -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty Name)
+            $missingModules = @($repoModules | Where-Object { $_ -notin $packagedModules })
+            if ($missingModules.Count -gt 0) {
+              throw "$Label runtime closure is missing $($missingModules.Count) package(s): $($missingModules -join ', ')"
+            }
+            Write-Host "::notice::$Label runtime closure complete: $($packagedModules.Count) @deepseek-ai packages."
+          }
+
           function Invoke-PackagedSmoke {
             param(
               [Parameter(Mandatory)] [string] $Name,
@@ -132,6 +154,7 @@ jobs:
 
           Write-Host "::notice::Reduced smoke gate: HTTP 2xx readiness only; keyless DSH RPC is not exercised."
           Write-Host "::notice::Each smoke phase uses an isolated user-data directory so the two phases never share DSH_HOME."
+          Assert-PackagedRuntimeClosure -Label "win-unpacked" -AppRoot "dist/win-unpacked"
           Invoke-PackagedSmoke `
             -Name "win-unpacked" `
             -ExecutablePath "dist/win-unpacked/DSH Flightdeck.exe" `
@@ -158,6 +181,7 @@ jobs:
           }
 
           $installedExecutable = Join-Path $installDirectory "DSH Flightdeck.exe"
+          Assert-PackagedRuntimeClosure -Label "installed" -AppRoot $installDirectory
           Invoke-PackagedSmoke `
             -Name "installed" `
             -ExecutablePath $installedExecutable `

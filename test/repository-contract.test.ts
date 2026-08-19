@@ -58,6 +58,40 @@ describe("package.json", () => {
     expect(requiredString(pkg.dependencies, "ts-pattern")).toBe("5.9.0");
   });
 
+  it("declares the DSH runtime peer closure as direct dependencies", async () => {
+    // Given: the parsed package.json
+    const pkg = parsePackageJson(await readRepositoryFile("package.json"));
+
+    // When: the peer-only DSH packages are read
+    // Then: each is a direct dependency, because electron-builder's production
+    // collector drops packages reachable only through peerDependencies and the
+    // installed app then fails with ERR_MODULE_NOT_FOUND at boot
+    const closure: Record<string, string> = {
+      "@deepseek-ai/cordis-plugin-group": "1.0.1",
+      "@deepseek-ai/dsh-anonymous-user-id": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-atomic-write": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-bash-local": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-code-runtime": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-compaction": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-fs": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-invariants": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-output-retention": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-sandbox": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-scope": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-session-telemetry": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-session-title-llm": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-shell": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-spill": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-subagent-in-process-driver": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-subprocess": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-timeout": "0.1.0-rc.7",
+      "@deepseek-ai/dsh-workflow": "0.1.0-rc.7",
+    };
+    for (const [name, version] of Object.entries(closure)) {
+      expect(requiredString(pkg.dependencies, name)).toBe(version);
+    }
+  });
+
   it("pins the exact development toolchain", async () => {
     // Given: the parsed package.json
     const pkg = parsePackageJson(await readRepositoryFile("package.json"));
@@ -265,6 +299,13 @@ describe(".github/workflows/windows-package.yml", () => {
     expect(workflow).toContain('$env:DSH_FLIGHTDECK_USER_DATA = $previousUserDataOverride');
     expect(workflow).toContain("dsh-flightdeck-smoke-win-unpacked");
     expect(workflow).toContain("dsh-flightdeck-smoke-installed");
+
+    // Then: both packaged trees are verified against the repository runtime
+    // closure before any smoke, so a dropped peer-only package fails loudly
+    expect(workflow).toContain("Assert-PackagedRuntimeClosure");
+    expect(workflow).toContain("runtime closure is missing");
+    expect(workflow).toContain('Assert-PackagedRuntimeClosure -Label "win-unpacked"');
+    expect(workflow).toContain('Assert-PackagedRuntimeClosure -Label "installed"');
   });
 
   it("uploads one setup with strict absence handling and no distribution authority", async () => {

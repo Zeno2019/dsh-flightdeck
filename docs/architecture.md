@@ -87,6 +87,12 @@ The child is spawned with `windowsHide: true`, piped stdio, `NO_COLOR=1`, and `E
 
 `patches/@deepseek-ai+dsh-app-boot+0.1.0-rc.7.patch` repairs `ensureSymlink`: junctions are recognized via `readlinkSync`, compared with NT-prefix tolerance, and removed with `rmdirSync` (which deletes the reparse point, never the target). The `postinstall` script (`patch-package`) reapplies the patch on every clean install, and `test/profile-fallback.test.ts` exercises create/idempotent-heal/re-point/real-directory rejection on the CI platform.
 
+## Packaged runtime closure
+
+electron-builder's production dependency collector walks only `dependencies` edges, so packages reachable solely through DSH `peerDependencies` (npm lock entries marked `"peer": true`) are silently dropped from `resources/app/node_modules`. The unpacked smoke used to mask this gap: Node's parent-directory walk from `dist/win-unpacked` escapes into the repository's own `node_modules`; an installed copy in an unrelated directory cannot, and DSH dies with `ERR_MODULE_NOT_FOUND` while loading `@deepseek-ai/dsh-app-boot`.
+
+The full peer-only closure of `@deepseek-ai/dsh@0.1.0-rc.7` (19 packages) is declared as direct dependencies in `package.json`, and `windows-package.yml` verifies before every smoke that each repository `node_modules/@deepseek-ai` package exists in both the `win-unpacked` and the installed trees — a future DSH upgrade that changes the peer closure fails the packaging step loudly instead of surfacing as an opaque fatal marker.
+
 ## Startup and shutdown
 
 Startup:
