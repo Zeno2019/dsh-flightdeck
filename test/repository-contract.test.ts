@@ -173,7 +173,7 @@ describe("package.json", () => {
     expect(readBoolean(build, "asar")).toBe(false);
     expect(readBoolean(build, "npmRebuild")).toBe(false);
     expect(readString(build, "compression")).toBe("maximum");
-    expect(readStringArray(build, "files")).toEqual(["out/**/*", "node_modules/**/*", "package.json", "!**/*.map"]);
+    expect(readStringArray(build, "files")).toEqual(["out/**/*", "node_modules/**/*", "package.json", "!**/*.map", "!**/.gitmodules"]);
     expect(extraResources).toEqual([
       { from: "build/splash.html", to: "splash.html" },
       { from: "build/runtime-node-entry.mjs", to: "runtime-node-entry.mjs" },
@@ -197,9 +197,30 @@ describe("package.json", () => {
       createStartMenuShortcut: true,
       artifactName: "dsh-flightdeck-windows-${arch}-setup.${ext}",
     });
-    for (const forbiddenKey of ["publish", "mac", "linux", "electronUpdaterCompatibility"] as const) {
+    for (const forbiddenKey of ["publish", "linux", "electronUpdaterCompatibility"] as const) {
       expect(build[forbiddenKey]).toBeUndefined();
     }
+  });
+
+  it("declares the exact unsigned macOS arm64 dmg builder contract", async () => {
+    // Given: the untrusted build object parsed from package.json
+    const build = parsePackageJson(await readRepositoryFile("package.json")).build;
+
+    // When: every machine-consumed macOS packaging field is narrowed
+    const mac = readRecord(build, "mac");
+    const targets = readRecordArray(mac, "target");
+    const target = targets[0];
+    if (target === undefined) throw new TypeError("expected one macOS target");
+
+    // Then: the builder can only produce the approved unsigned arm64 dmg.
+    // identity: null keeps signing off (CI sets CSC_IDENTITY_AUTO_DISCOVERY
+    // to false as the second belt), and the artifact name mirrors the win one.
+    expect(mac["identity"]).toBeNull();
+    expect(targets).toHaveLength(1);
+    expect(readString(target, "target")).toBe("dmg");
+    expect(readStringArray(target, "arch")).toEqual(["arm64"]);
+    expect(readString(mac, "artifactName")).toBe("dsh-flightdeck-mac-${arch}.${ext}");
+    expect(readString(mac, "category")).toBe("public.app-category.developer-tools");
   });
 
   it("ships vendored pnpm and dsh launchers and injects their win32 tools directory into the harness PATH", async () => {

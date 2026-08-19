@@ -16,8 +16,11 @@
     "test:watch": "vitest",
     "postinstall": "patch-package",
     "verify:target:win": "node scripts/verify-target.mjs win32 x64",
+    "verify:target:mac": "node scripts/verify-target.mjs darwin arm64",
     "package:dir": "npm run verify:target:win && node scripts/prepare-profile-web.mjs && npm run build && electron-builder --dir --win --x64 --publish never",
-    "package:win": "npm run verify:target:win && node scripts/prepare-profile-web.mjs && npm run build && electron-builder --win --x64 --publish never"
+    "package:win": "npm run verify:target:win && node scripts/prepare-profile-web.mjs && npm run build && electron-builder --win --x64 --publish never",
+    "package:mac:dir": "npm run verify:target:mac && node scripts/prepare-profile-web.mjs && npm run build && electron-builder --dir --mac --arm64 --publish never",
+    "package:mac": "npm run verify:target:mac && node scripts/prepare-profile-web.mjs && npm run build && electron-builder --mac --arm64 --publish never"
   },
   "dependencies": {
     "@deepseek-ai/cordis-plugin-group": "1.0.1",
@@ -67,7 +70,8 @@
       "out/**/*",
       "node_modules/**/*",
       "package.json",
-      "!**/*.map"
+      "!**/*.map",
+      "!**/.gitmodules"
     ],
     "extraResources": [
       {
@@ -92,6 +96,19 @@
           ]
         }
       ]
+    },
+    "mac": {
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "dsh-flightdeck-mac-${arch}.${ext}",
+      "category": "public.app-category.developer-tools"
     },
     "nsis": {
       "oneClick": false,
