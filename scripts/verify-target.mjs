@@ -1,6 +1,7 @@
-// Windows-target gate for packaging scripts. Packaging is Windows-x64-only;
-// this script fails fast anywhere else so no cross-platform artifact is ever
-// produced silently.
+// Platform-target gate for packaging scripts. Packaging has exactly two
+// approved targets — Windows x64 and macOS (darwin) arm64 — and this script
+// fails fast anywhere else so no cross-platform artifact is ever produced
+// silently.
 
 const [expectedPlatform, expectedArch] = process.argv.slice(2);
 

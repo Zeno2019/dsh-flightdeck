@@ -288,6 +288,30 @@ jobs:
           DIAG="$RUNNER_TEMP/dsh-flightdeck-diagnostics"
           mkdir -p "$DIAG"
 
+          APP_PID=""
+          APP_LOG=""
+          APP_NAME=""
+          BASELINE=""
+          MNT=""
+
+          # EXIT trap instead of ERR: every failure branch in this block is
+          # an explicit `exit 1`, which never fires an ERR trap, while an
+          # EXIT trap runs on all of them (and on set -e aborts). On the
+          # success path the app is already dead, the log already copied,
+          # and the dmg already detached, so the trap is a harmless no-op.
+          cleanup_on_exit() {
+            if [ -n "$APP_PID" ]; then kill "$APP_PID" 2>/dev/null || true; fi
+            for pid in $(pgrep -x node 2>/dev/null || true); do
+              case " $BASELINE " in
+                *" $pid "*) ;;
+                *) kill -9 $pid 2>/dev/null || true ;;
+              esac
+            done
+            if [ -n "$APP_NAME" ] && [ -n "$APP_LOG" ]; then cp "$APP_LOG" "$DIAG/$APP_NAME-harness.log" 2>/dev/null || true; fi
+            if [ -n "$MNT" ]; then hdiutil detach "$MNT" 2>/dev/null || true; fi
+          }
+          trap cleanup_on_exit EXIT
+
           assert_closure() {
             local label="$1" app_root="$2"
             local repo="$PWD/node_modules/@deepseek-ai" packaged="$app_root/Contents/Resources/app/node_modules/@deepseek-ai"
@@ -341,10 +365,14 @@ jobs:
 
           smoke_app() {
             local name="$1" executable="$2" udd="$3"
-            local baseline="$(pgrep -x node 2>/dev/null | sort || true)"
+            APP_NAME="$name"
+            APP_LOG="$udd/logs/harness.log"
+            BASELINE="$(pgrep -x node 2>/dev/null | sort || true)"
+            local baseline="$BASELINE"
             rm -rf "$udd"
             DSH_FLIGHTDECK_USER_DATA="$udd" "$executable" &
-            local app_pid=$!
+            APP_PID=$!
+            local app_pid=$APP_PID
             local log_file="$udd/logs/harness.log"
             local deadline=$(( $(date +%s) + 180 ))
             local port=""
