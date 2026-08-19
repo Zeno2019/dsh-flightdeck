@@ -17,3 +17,8 @@ coverage/
 
 /build/profile-web/
 .tmp-npm-cache/
+
+.tmp-electron-cache/
+.tmp-electron-builder-cache/
+.tmp-tmpdir/
+.tmp-mac-smoke-userdata/
