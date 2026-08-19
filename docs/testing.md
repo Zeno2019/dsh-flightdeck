@@ -99,11 +99,12 @@ The workflow requires exactly one setup executable, uploads it with `if-no-files
 
 Verified in this local macOS session:
 
-- 109 of 113 tests passing (`npm test`). The four remaining tests bind a loopback port (`reserveLoopbackPort`, `waitUntilReady`, and one `HarnessRuntime` case in `test/runtime.test.ts`) and fail with `EPERM` inside this restricted sandbox, which denies loopback binds; they pass on CI and on a normal developer machine.
+- 112 of 116 tests passing (`npm test`). The four remaining tests bind a loopback port (`reserveLoopbackPort`, `waitUntilReady`, and one `HarnessRuntime` case in `test/runtime.test.ts`) and fail with `EPERM` inside this restricted sandbox, which denies loopback binds; they pass on CI and on a normal developer machine.
 - Typecheck clean (`npm run typecheck`).
 - electron-vite build successful (`npm run build`), with the expected warning that only the main process is configured.
 - `scripts/prepare-profile-web.mjs` stages `dshmarket@1.14.1` and `dsh-find-plugin@0.3.6` into `build/profile-web/payload`: symlink-free npm production tree, zero `@deepseek-ai` duplication, idempotent reruns. The payload nests below the copy root because electron-builder drops a root-level `node_modules` of an extraResources source directory. Plugin peers (`@deepseek-ai/cordis@4.0.1`, `@deepseek-ai/dsh-settings@0.1.0-rc.7`, `@deepseek-ai/dsh-tools@0.1.0-rc.7`) resolve against the repository closure.
 - The vendored pnpm probe path: the bundled `node_modules/node/bin/node` runs the pinned `node_modules/pnpm/bin/pnpm.cjs` and prints `11.7.0`; a simulated dshmarket probe with the tooling stripped from PATH fails corepack/npm/pnpm (ENOENT, the 0.1.0-rc.2 real-machine symptom), and the same probe with a generated launcher directory on PATH resolves `pnpm --version` to `11.7.0` (exit 0) — the exact success gate dshmarket's `provisionPnpm` checks.
+- The vendored dsh launcher path: the bundled `node_modules/node/bin/node` runs `@deepseek-ai/dsh/lib/bin.js --version` and prints `0.1.0-rc.7` (exit 0) — the exact command line `dsh.cmd` forwards on the real machine, answering dshmarket's bare-`dsh` re-invocation (`dshArgv` falls back to PATH because the harness entry does not match its `bin.js`-shaped argv[1] check).
 - A clean `npm ci` reapplies the pinned `@deepseek-ai/dsh-app-boot` patch through the `postinstall` script.
 - Desktop splash captures at `1280x800` and `800x600`, reviewed through `agent-vision-mcp` and two independent read-only passes with no blockers.
 
@@ -122,6 +123,6 @@ On a real Windows machine, after installing this revision:
 
 - The installer carries the seed under `%LOCALAPPDATA%\Programs\DSH Flightdeck\resources\profile-web\payload` (manifest, `cordis.patch.yml`, and the five-package `node_modules` tree).
 - After first launch, `%APPDATA%\DSH Flightdeck\harness\profiles\web` exists with the `dsh.profile.bundles` list and `node_modules\dshmarket`; the marketplace and the find plugin are usable in the DSH UI.
-- After first launch, `%APPDATA%\DSH Flightdeck\tools\pnpm.cmd` exists on machines without any Node tooling — it runs the vendored `node.exe` against the packaged `pnpm.cjs`, so the market's one-click pnpm setup short-circuits through its `pnpm --version` probe.
+- After first launch, `%APPDATA%\DSH Flightdeck\tools\pnpm.cmd` and `tools\dsh.cmd` exist on machines without any Node tooling — they run the vendored `node.exe` against the packaged `pnpm.cjs` and `@deepseek-ai\dsh\lib\bin.js`, so the market's one-click pnpm setup short-circuits through its `pnpm --version` probe and plugin installs re-invoke the DSH CLI through `dsh.cmd` (dshmarket's `dshArgv` only recognizes `bin.js`-shaped argv[1], which the harness entry is not). Smoke: `cmd /c "%APPDATA%\DSH Flightdeck\tools\dsh.cmd" --version` prints the DSH version (install nothing).
 - Installing a plugin from the market UI succeeds on a machine with no node/npm/corepack/pnpm on PATH (this migrates the seeded npm-flat tree to pnpm's layout on first use — expected, and installs need network anyway).
 - A second launch never overwrites an existing or user-edited profile.

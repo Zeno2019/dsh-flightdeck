@@ -29,7 +29,7 @@ describe("package.json", () => {
 
     // Then: identity matches the initialization plan review decisions
     expect(pkg.name).toBe("dsh-flightdeck");
-    expect(pkg.version).toBe("0.1.0-rc.3");
+    expect(pkg.version).toBe("0.1.0-rc.4");
     expect(pkg.private).toBe(true);
     expect(pkg.type).toBe("module");
     expect(pkg.main).toBe("./out/main/index.js");
@@ -202,20 +202,23 @@ describe("package.json", () => {
     }
   });
 
-  it("ships a vendored pnpm and injects its win32 launcher directory into the harness PATH", async () => {
+  it("ships vendored pnpm and dsh launchers and injects their win32 tools directory into the harness PATH", async () => {
     // Given: the launcher module, the spawn seam, and the startup wiring
-    const pnpmTools = await readRepositoryFile("src/main/pnpm-tools.ts");
+    const toolLaunchers = await readRepositoryFile("src/main/tool-launchers.ts");
     const runtime = await readRepositoryFile("src/main/runtime.ts");
     const index = await readRepositoryFile("src/main/index.ts");
 
-    // Then: the win32 launcher switches the console to UTF-8 (the 0.1.0-rc.2
-    // market log garbled setup-pnpm failures as GBK) and runs pnpm.cjs with
-    // the vendored node, never process.execPath (the Electron binary)
-    expect(pnpmTools).toContain('@chcp 65001 >nul');
-    expect(pnpmTools).toContain('join(input.toolsDir, "pnpm.cmd")');
-    expect(pnpmTools).toContain('"pnpm", "bin", "pnpm.cjs"');
-    expect(pnpmTools).toContain('input.platform !== "win32"');
-    expect(pnpmTools).toContain("never `process.execPath`");
+    // Then: both win32 launchers switch the console to UTF-8 (the 0.1.0-rc.2
+    // market log garbled tool failures as GBK) and run their vendored entry
+    // with the vendored node, never process.execPath (the Electron binary)
+    expect(toolLaunchers).toContain('@chcp 65001 >nul');
+    expect(toolLaunchers).toContain('"pnpm.cmd"');
+    expect(toolLaunchers).toContain('"dsh.cmd"');
+    expect(toolLaunchers).toContain('"pnpm", "bin", "pnpm.cjs"');
+    expect(toolLaunchers).toContain("buildDshLauncherContent");
+    expect(toolLaunchers).toContain("writeDshLauncher");
+    expect(toolLaunchers).toContain('input.platform !== "win32"');
+    expect(toolLaunchers).toContain("never `process.execPath`");
 
     // Then: the harness child PATH accepts prepended directories merged into
     // a single case-insensitive-safe PATH key
@@ -223,13 +226,16 @@ describe("package.json", () => {
     expect(runtime).toContain("prependPathDirs");
     expect(runtime).toContain("env[\"Path\"]");
 
-    // Then: startup materializes the launcher under userData/tools, injects
-    // the directory, and degrades instead of blocking when the write fails
+    // Then: startup materializes both launchers under userData/tools from
+    // runtime-paths inputs, injects the directory, and degrades instead of
+    // blocking when a write fails
     expect(index).toContain("writePnpmLauncher(");
+    expect(index).toContain("writeDshLauncher(");
     expect(index).toContain("resolvePnpmEntry(app.getAppPath(), process.platform)");
+    expect(index).toContain("dshBin: paths.dshBin");
     expect(index).toContain('join(userData, "tools")');
     expect(index).toContain("prependPathDirs.push(toolsDir)");
-    expect(index).toContain('reportMainFailure("pnpm launcher", error)');
+    expect(index).toContain('reportMainFailure("tool launchers", error)');
   });
 
   it("vendors the two approved DSH plugins as a first-launch web profile seed", async () => {
@@ -274,7 +280,7 @@ describe("package-lock.json", () => {
     expect(lock.lockfileVersion).toBe(3);
     expect(lock.name).toBe(pkg.name);
     expect(lock.version).toBe(pkg.version);
-    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.3");
+    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.4");
   });
 
   it("locks the exact pinned runtime inputs", async () => {

@@ -4,7 +4,7 @@ import { app, BrowserWindow, dialog, Menu } from "electron";
 import { match } from "ts-pattern";
 import type { RuntimeOutcome, RuntimeSnapshot } from "../shared/contracts.js";
 import { resolveRuntimePaths } from "./runtime-paths.js";
-import { resolvePnpmEntry, writePnpmLauncher } from "./pnpm-tools.js";
+import { resolvePnpmEntry, writeDshLauncher, writePnpmLauncher } from "./tool-launchers.js";
 import { HarnessRuntime } from "./runtime.js";
 import { seedWebProfile } from "./profile-seed.js";
 import { secureWindow } from "./security.js";
@@ -121,27 +121,37 @@ async function startMainShell(): Promise<void> {
   const userData = app.getPath("userData");
   const dshHome = join(userData, "harness");
 
-  // The DSH market provisions pnpm by probing the child PATH (corepack, then
-  // npm -g, with `pnpm --version` as the success gate). A freshly written
-  // pnpm.cmd pointing at the vendored node and pnpm satisfies that probe on
-  // machines without any Node tooling; a write failure only means no
-  // injection, never a blocked startup.
+  // The DSH market probes the child PATH twice: `pnpm --version` gates its
+  // one-click pnpm setup, and plugin installs re-invoke the DSH CLI as a
+  // bare `dsh` (dshmarket's dshArgv only recognizes bin.js-shaped argv[1],
+  // which the runtime-node-entry.mjs harness entry is not). Freshly written
+  // pnpm.cmd / dsh.cmd launchers pointing at the vendored node satisfy both
+  // probes on machines without any Node tooling; a write failure only means
+  // no injection, never a blocked startup.
   const prependPathDirs: string[] = [];
   if (process.platform === "win32") {
     try {
       const toolsDir = join(userData, "tools");
-      const launcher = await writePnpmLauncher({
-        toolsDir,
-        nodeExecutable: paths.nodeExecutable,
-        pnpmEntry: resolvePnpmEntry(app.getAppPath(), process.platform),
-        platform: process.platform,
-      });
-      if (launcher !== null) {
+      const [pnpmLauncher, dshLauncher] = await Promise.all([
+        writePnpmLauncher({
+          toolsDir,
+          nodeExecutable: paths.nodeExecutable,
+          pnpmEntry: resolvePnpmEntry(app.getAppPath(), process.platform),
+          platform: process.platform,
+        }),
+        writeDshLauncher({
+          toolsDir,
+          nodeExecutable: paths.nodeExecutable,
+          dshBin: paths.dshBin,
+          platform: process.platform,
+        }),
+      ]);
+      if (pnpmLauncher !== null && dshLauncher !== null) {
         prependPathDirs.push(toolsDir);
-        console.log("[desktop] pnpm launcher ready");
+        console.log("[desktop] tool launchers ready");
       }
     } catch (error) {
-      reportMainFailure("pnpm launcher", error);
+      reportMainFailure("tool launchers", error);
     }
   }
 
