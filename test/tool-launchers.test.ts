@@ -97,7 +97,7 @@ describe("writePnpmLauncher", () => {
     }
   });
 
-  it("writes an executable pnpm sh shim on darwin", async () => {
+  it.skipIf(process.platform !== "darwin")("writes an executable pnpm sh shim on darwin", async () => {
     // Given: a fresh per-test tools directory and darwin vendored paths
     const root = await mkdtemp(join(tmpdir(), "dsh-flightdeck-pnpm-shim-darwin-"));
     const toolsDir = join(root, "tools");
@@ -206,7 +206,7 @@ describe("writeDshLauncher", () => {
     }
   });
 
-  it("writes an executable dsh sh shim on darwin", async () => {
+  it.skipIf(process.platform !== "darwin")("writes an executable dsh sh shim on darwin", async () => {
     // Given: a fresh per-test tools directory and darwin vendored paths
     const root = await mkdtemp(join(tmpdir(), "dsh-flightdeck-dsh-shim-darwin-"));
     const toolsDir = join(root, "tools");
