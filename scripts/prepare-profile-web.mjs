@@ -4,7 +4,7 @@
 // The upstream DSH runtime auto-initializes the `web` profile from a
 // template with empty dependencies, and `dsh plugin` is its only supported
 // installer (pnpm + network on the target machine). Shipping a prepared
-// profile instead keeps the desktop app offline-capable for the two
+// profile instead keeps the desktop app offline-capable for the four
 // approved plugins. npm's flat node_modules layout contains no symlinks,
 // so the staged tree is safe for the NSIS installer (no junction material).
 
@@ -37,8 +37,18 @@ nodeLinker: hoisted
 autoInstallPeers: false
 `;
 
+// dsh-anchored-subagent is GitHub-only (not published to npm). The seed
+// pins a codeload tarball URL at the exact commit below, so npm resolves
+// the plugin at packaging time and the target machine never needs git —
+// the plain `github:` form would make pnpm re-resolve through git at
+// runtime (the heal path). v0.3.0, main@2026-08-16. Bump sha + comment
+// together.
+const ANCHORED_SUBAGENT_SHA = "31fdd22a4265aef3107d9fca05854bea78a9af10";
+const ANCHORED_SUBAGENT_SPEC =
+  `https://codeload.github.com/GY-Bai/dsh-anchored-subagent/tar.gz/${ANCHORED_SUBAGENT_SHA}`;
+
 // The profile manifest mirrors the user-facing web profile shape: the two
-// template bundles that DSH ships, plus the two approved plugins.
+// template bundles that DSH ships, plus the four approved plugins.
 // dsh-find-plugin is pinned to 0.3.7 (not 0.3.6): 0.3.6's peer range
 // `@deepseek-ai/dsh-tools@^0.0.1-rc.1` resolves only to restricted
 // registry line; 0.3.7 moved the peer to the public `^0.1.0-rc.6` line.
@@ -48,6 +58,7 @@ const PROFILE_MANIFEST = {
   dependencies: {
     dshmarket: "1.14.1",
     "dsh-find-plugin": "0.3.7",
+    "dsh-anchored-subagent": ANCHORED_SUBAGENT_SPEC,
   },
   dsh: {
     profile: {
@@ -56,6 +67,7 @@ const PROFILE_MANIFEST = {
         "@deepseek-ai/dsh-web-app",
         "dshmarket",
         "dsh-find-plugin",
+        "dsh-anchored-subagent",
       ],
     },
   },
@@ -82,7 +94,7 @@ writeFileSync(
 writeFileSync(join(PAYLOAD_DIR, "cordis.patch.yml"), "[]\n", "utf8");
 writeFileSync(join(PAYLOAD_DIR, "pnpm-workspace.yaml"), PROFILE_PNPM_WORKSPACE, "utf8");
 
-// 3. Install the two pinned plugin production trees. Peer dependencies
+// 3. Install the pinned plugin production trees. Peer dependencies
 //    are deliberately NOT installed: the plugins' @deepseek-ai peers
 //    resolve at runtime from the packaged dsh closure (healed into
 //    $DSH_HOME/profiles/node_modules by dsh-app-boot), exactly like a
@@ -113,12 +125,20 @@ for (const entry of [".bin", ".package-lock.json"]) {
 }
 rmSync(join(PAYLOAD_DIR, "package-lock.json"), { force: true });
 
-// 5. Prove the two approved plugins landed before the installer consumes
+// 5. Prove the approved plugins landed before the installer consumes
 //    the staging directory.
-for (const plugin of ["dshmarket", "dsh-find-plugin"]) {
+const APPROVED_PLUGINS = [
+  "dshmarket",
+  "dsh-find-plugin",
+  "dsh-anchored-subagent",
+];
+for (const plugin of APPROVED_PLUGINS) {
   if (!existsSync(join(PAYLOAD_DIR, "node_modules", plugin, "package.json"))) {
     fail(`expected ${plugin} in the staged node_modules`);
   }
 }
 
-console.log("prepare-profile-web: staged dshmarket@1.14.1 and dsh-find-plugin@0.3.7");
+console.log(
+  "prepare-profile-web: staged dshmarket@1.14.1, dsh-find-plugin@0.3.7, " +
+  `dsh-anchored-subagent@0.3.0 (${ANCHORED_SUBAGENT_SHA.slice(0, 7)})`,
+);

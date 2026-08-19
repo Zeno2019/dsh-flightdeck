@@ -156,7 +156,7 @@ async function startMainShell(): Promise<void> {
     }
   }
 
-  // The packaged app ships a prepared web profile so the two approved DSH
+  // The packaged app ships a prepared web profile so the three approved DSH
   // plugins work without pnpm or network on the target machine. Seeding is
   // first-launch-only (the target manifest gates it) and a failure degrades
   // to DSH's own empty-template initialization instead of blocking startup.

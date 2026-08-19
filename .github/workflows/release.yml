@@ -73,13 +73,14 @@ jobs:
             $requiredPaths = @(
               (Join-Path $seedPayload "package.json"),
               (Join-Path $seedPayload "node_modules/dshmarket/package.json"),
-              (Join-Path $seedPayload "node_modules/dsh-find-plugin/package.json")
+              (Join-Path $seedPayload "node_modules/dsh-find-plugin/package.json"),
+              (Join-Path $seedPayload "node_modules/dsh-anchored-subagent/package.json")
             )
             $missingPaths = @($requiredPaths | Where-Object { -not (Test-Path $_) })
             if ($missingPaths.Count -gt 0) {
               throw "$Label vendored profile seed is missing $($missingPaths.Count) path(s): $($missingPaths -join ', ')"
             }
-            Write-Host "::notice::$Label vendored profile seed complete (dshmarket, dsh-find-plugin)."
+            Write-Host "::notice::$Label vendored profile seed complete (dshmarket, dsh-find-plugin, dsh-anchored-subagent)."
           }
 
           # The pnpm launcher written under userData/tools forwards to this
@@ -341,14 +342,15 @@ jobs:
             for path in \
               "$payload/package.json" \
               "$payload/node_modules/dshmarket/package.json" \
-              "$payload/node_modules/dsh-find-plugin/package.json"
+              "$payload/node_modules/dsh-find-plugin/package.json" \
+              "$payload/node_modules/dsh-anchored-subagent/package.json"
             do
               if [ ! -f "$path" ]; then
                 echo "::error::$label vendored profile seed is missing: $path"
                 exit 1
               fi
             done
-            echo "::notice::$label vendored profile seed complete (dshmarket, dsh-find-plugin)."
+            echo "::notice::$label vendored profile seed complete (dshmarket, dsh-find-plugin, dsh-anchored-subagent)."
           }
 
           # The pnpm launcher written under userData/tools forwards to this

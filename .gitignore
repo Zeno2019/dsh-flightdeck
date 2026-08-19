@@ -22,3 +22,5 @@ coverage/
 .tmp-electron-builder-cache/
 .tmp-tmpdir/
 .tmp-mac-smoke-userdata/
+/build/npm-cache/
+/build/scratch-preflight/

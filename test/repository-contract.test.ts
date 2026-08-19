@@ -259,17 +259,19 @@ describe("package.json", () => {
     expect(index).toContain('reportMainFailure("tool launchers", error)');
   });
 
-  it("vendors the two approved DSH plugins as a first-launch web profile seed", async () => {
+  it("vendors the four approved DSH plugins as a first-launch web profile seed", async () => {
     // Given: the packaging-time prepare script, ignore rules, and seed seam
     const prepare = await readRepositoryFile("scripts/prepare-profile-web.mjs");
     const gitignore = await readRepositoryFile(".gitignore");
     const seedModule = await readRepositoryFile("src/main/profile-seed.ts");
     const index = await readRepositoryFile("src/main/index.ts");
 
-    // Then: only the two approved plugins are pinned and bundled, and the
+    // Then: only the four approved plugins are pinned and bundled, and the
     // staged npm tree can never leak into git
     expect(prepare).toContain('dshmarket: "1.14.1"');
     expect(prepare).toContain('"dsh-find-plugin": "0.3.7"');
+    expect(prepare).toContain('const ANCHORED_SUBAGENT_SHA = "31fdd22a4265aef3107d9fca05854bea78a9af10"');
+    expect(prepare).toContain("https://codeload.github.com/GY-Bai/dsh-anchored-subagent/tar.gz/${ANCHORED_SUBAGENT_SHA}");
     expect(prepare).toContain("pnpm-workspace.yaml");
     expect(prepare).toContain("nodeLinker: hoisted");
     expect(prepare).toContain("autoInstallPeers: false");
@@ -404,7 +406,7 @@ describe(".github/workflows/windows-package.yml", () => {
     expect(workflow).toContain("resources/profile-web/payload");
     expect(workflow).toContain('Assert-VendoredProfileSeed -Label "win-unpacked"');
     expect(workflow).toContain('Assert-VendoredProfileSeed -Label "installed"');
-    expect(workflow).toContain("vendored profile seed complete (dshmarket, dsh-find-plugin)");
+    expect(workflow).toContain("vendored profile seed complete (dshmarket, dsh-find-plugin, dsh-anchored-subagent)");
     expect(workflow).toContain("vendored profile seed is missing");
 
     // Then: the vendored pnpm the launcher forwards to is asserted too — the

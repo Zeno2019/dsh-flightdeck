@@ -87,14 +87,15 @@ jobs:
             for path in \
               "$payload/package.json" \
               "$payload/node_modules/dshmarket/package.json" \
-              "$payload/node_modules/dsh-find-plugin/package.json"
+              "$payload/node_modules/dsh-find-plugin/package.json" \
+              "$payload/node_modules/dsh-anchored-subagent/package.json"
             do
               if [ ! -f "$path" ]; then
                 echo "::error::$label vendored profile seed is missing: $path"
                 exit 1
               fi
             done
-            echo "::notice::$label vendored profile seed complete (dshmarket, dsh-find-plugin)."
+            echo "::notice::$label vendored profile seed complete (dshmarket, dsh-find-plugin, dsh-anchored-subagent)."
           }
 
           # The pnpm launcher written under userData/tools forwards to this

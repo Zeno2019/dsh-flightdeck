@@ -30,12 +30,13 @@ electron-builder 的生产依赖收集器会丢弃仅经 `peerDependencies` 可�
 
 ## 内置插件
 
-安装包内置两个经审核的 DSH 插件,作为首次启动的 web profile 种子:
+安装包内置三个经审核的 DSH 插件，作为首次启动的 web profile 种子：
 
 - `dshmarket` 1.14.1
-- `dsh-find-plugin` 0.3.6
+- `dsh-find-plugin` 0.3.7
+- `dsh-anchored-subagent` 0.3.0 —— 仅发布在 GitHub，经 codeload tarball URL pin 到精确 commit（构建期解析，目标机器无需 git）。每个会话首请求以 Minimal 双工具集条件启动，再解锁完整工具目录
 
-`scripts/prepare-profile-web.mjs` 在打包时把它们暂存为一棵无符号链接的 npm 生产依赖树,连同 profile 清单(模板包加上这两个插件)与一份空的 `cordis.patch.yml`。插件的 peer 依赖刻意不随包分发:运行时从打包的 DSH 闭包解析。首次启动时,仅当 `<userData>/harness/profiles/web` 尚不存在才会复制 profile;之后的启动绝不覆盖用户的改动。插件版本冻结在 prepare 脚本里——要升级就在那里改并重新构建。日后增删插件需要本机装有 pnpm(上游 `dsh plugin` 路径)。
+`scripts/prepare-profile-web.mjs` 在打包时把它们暂存为一棵无符号链接的 npm 生产依赖树，连同 profile 清单（模板包加上这三个插件）与一份空的 `cordis.patch.yml`。插件的 peer 依赖刻意不随包分发:运行时从打包的 DSH 闭包解析。首次启动时,仅当 `<userData>/harness/profiles/web` 尚不存在才会复制 profile;之后的启动绝不覆盖用户的改动。插件版本冻结在 prepare 脚本里--要升级就在那里改并重新构建。日后增删插件需要本机装有 pnpm(上游 `dsh plugin` 路径)。
 
 ## 前置条件
 
