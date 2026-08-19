@@ -1,0 +1,201 @@
+name: macOS package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Package macOS arm64 dmg
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm run package:mac
+      - name: Smoke unpacked and dmg-installed applications
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DIAG="$RUNNER_TEMP/dsh-flightdeck-diagnostics"
+          mkdir -p "$DIAG"
+
+          assert_closure() {
+            local label="$1" app_root="$2"
+            local repo="$PWD/node_modules/@deepseek-ai" packaged="$app_root/Contents/Resources/app/node_modules/@deepseek-ai"
+            if [ ! -d "$packaged" ]; then
+              echo "::error::$label packaged @deepseek-ai closure directory is missing: $packaged"
+              exit 1
+            fi
+            local missing=""
+            for name in $(ls "$repo"); do
+              if [ ! -d "$packaged/$name" ]; then missing="$missing $name"; fi
+            done
+            if [ -n "$missing" ]; then
+              echo "::error::$label runtime closure is missing package(s):$missing"
+              exit 1
+            fi
+            echo "::notice::$label runtime closure complete: $(ls "$packaged" | wc -l | tr -d ' ') @deepseek-ai packages."
+          }
+
+          # electron-builder drops a node_modules directory sitting at the
+          # root of an extraResources source directory, so the seed payload
+          # nests one level below the copied root
+          # (build/profile-web/payload). Prove the vendored plugins actually
+          # landed in the packaged resources before the smoke starts.
+          assert_seed() {
+            local label="$1" app_root="$2"
+            local payload="$app_root/Contents/Resources/profile-web/payload"
+            for path in \
+              "$payload/package.json" \
+              "$payload/node_modules/dshmarket/package.json" \
+              "$payload/node_modules/dsh-find-plugin/package.json"
+            do
+              if [ ! -f "$path" ]; then
+                echo "::error::$label vendored profile seed is missing: $path"
+                exit 1
+              fi
+            done
+            echo "::notice::$label vendored profile seed complete (dshmarket, dsh-find-plugin)."
+          }
+
+          # The pnpm launcher written under userData/tools forwards to this
+          # entry (pnpm@11.7.0 shipped as a direct dependency).
+          assert_pnpm() {
+            local label="$1" app_root="$2"
+            local entry="$app_root/Contents/Resources/app/node_modules/pnpm/bin/pnpm.cjs"
+            if [ ! -f "$entry" ]; then
+              echo "::error::$label vendored pnpm is missing from the packaged closure: $entry"
+              exit 1
+            fi
+            echo "::notice::$label vendored pnpm 11.7.0 present in packaged tree."
+          }
+
+          smoke_app() {
+            local name="$1" executable="$2" udd="$3"
+            local baseline="$(pgrep -x node 2>/dev/null | sort || true)"
+            rm -rf "$udd"
+            DSH_FLIGHTDECK_USER_DATA="$udd" "$executable" &
+            local app_pid=$!
+            local log_file="$udd/logs/harness.log"
+            local deadline=$(( $(date +%s) + 180 ))
+            local port=""
+            while [ $(date +%s) -lt $deadline ]; do
+              if [ -f "$log_file" ]; then
+                if grep -Eqi '(fatal|uncaught exception|unhandled rejection)' "$log_file"; then
+                  echo "::error::$name log contains a fatal marker"
+                  exit 1
+                fi
+                port="$(grep -Eo '\[desktop\] endpoint http://127\.0\.0\.1:[0-9]+' "$log_file" | tail -1 | grep -Eo '[0-9]+' || true)"
+                if [ -n "$port" ] && curl -sf -o /dev/null "http://127.0.0.1:$port"; then
+                  break
+                fi
+              fi
+              if ! kill -0 $app_pid 2>/dev/null; then
+                echo "::error::$name exited before readiness"
+                exit 1
+              fi
+              sleep 2
+            done
+            if [ -z "$port" ] || ! curl -sf -o /dev/null "http://127.0.0.1:$port"; then
+              echo "::error::$name did not reach HTTP 2xx within 180s"
+              exit 1
+            fi
+            if grep -Eqi '(fatal|uncaught exception|unhandled rejection)' "$log_file"; then
+              echo "::error::$name log contains a fatal marker"
+              exit 1
+            fi
+            if [ ! -x "$udd/tools/pnpm" ] || [ ! -x "$udd/tools/dsh" ]; then
+              echo "::error::$name did not write executable pnpm/dsh launchers under tools/"
+              exit 1
+            fi
+            kill $app_pid 2>/dev/null || true
+            for _ in $(seq 1 25); do
+              if ! kill -0 $app_pid 2>/dev/null; then break; fi
+              sleep 1
+            done
+            if kill -0 $app_pid 2>/dev/null; then
+              kill -9 $app_pid 2>/dev/null || true
+            fi
+            local leftovers=""
+            for pid in $(pgrep -x node 2>/dev/null || true); do
+              case " $baseline " in
+                *" $pid "*) ;;
+                *) leftovers="$leftovers $pid" ;;
+              esac
+            done
+            if [ -n "$leftovers" ]; then
+              for pid in $leftovers; do kill -9 $pid 2>/dev/null || true; done
+              echo "::error::$name left new node PIDs:$leftovers"
+              exit 1
+            fi
+            cp "$log_file" "$DIAG/$name-harness.log"
+            echo "::notice::$name smoke passed (HTTP 2xx on 127.0.0.1:$port, tool launchers executable, no leftover node PIDs)."
+          }
+
+          echo "::notice::Reduced smoke gate: HTTP 2xx readiness only; keyless DSH RPC is not exercised."
+          echo "::notice::Each smoke phase uses an isolated user-data directory so the two phases never share DSH_HOME."
+
+          APP_DIR=$(ls -d dist/mac*/ 2>/dev/null | head -1 | sed 's|/$||')
+          if [ -z "$APP_DIR" ]; then
+            echo "::error::no dist/mac*/ directory found"
+            exit 1
+          fi
+          APP_BUNDLE="$APP_DIR/DSH Flightdeck.app"
+          if [ ! -d "$APP_BUNDLE" ]; then
+            echo "::error::missing app bundle: $APP_BUNDLE"
+            exit 1
+          fi
+          assert_closure "mac-unpacked" "$APP_BUNDLE"
+          assert_seed "mac-unpacked" "$APP_BUNDLE"
+          assert_pnpm "mac-unpacked" "$APP_BUNDLE"
+          smoke_app "mac-unpacked" "$APP_BUNDLE/Contents/MacOS/DSH Flightdeck" "$RUNNER_TEMP/dsh-flightdeck-smoke-mac-unpacked"
+
+          DMG=$(ls dist/*.dmg 2>/dev/null | head -1)
+          if [ -z "$DMG" ]; then
+            echo "::error::no dmg found in dist/"
+            exit 1
+          fi
+          MNT="$RUNNER_TEMP/dsh-flightdeck-dmg-mnt"
+          mkdir -p "$MNT"
+          hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$DMG" >/dev/null
+          INSTALLED="$RUNNER_TEMP/dsh-flightdeck-installed"
+          rm -rf "$INSTALLED"
+          mkdir -p "$INSTALLED"
+          cp -R "$MNT/DSH Flightdeck.app" "$INSTALLED/"
+          hdiutil detach "$MNT" || hdiutil detach -force "$MNT"
+          INSTALLED_BUNDLE="$INSTALLED/DSH Flightdeck.app"
+          assert_closure "mac-dmg-installed" "$INSTALLED_BUNDLE"
+          assert_seed "mac-dmg-installed" "$INSTALLED_BUNDLE"
+          assert_pnpm "mac-dmg-installed" "$INSTALLED_BUNDLE"
+          smoke_app "mac-dmg-installed" "$INSTALLED_BUNDLE/Contents/MacOS/DSH Flightdeck" "$RUNNER_TEMP/dsh-flightdeck-smoke-mac-dmg-installed"
+      - name: Upload unsigned macOS dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-flightdeck-mac-arm64-dmg
+          path: dist/dsh-flightdeck-mac-arm64.dmg
+          if-no-files-found: error
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-flightdeck-macos-diagnostics
+          path: |
+            ${{ runner.temp }}/dsh-flightdeck-diagnostics/*.log
+            dist/builder-debug.yml
+            dist/builder-effective-config.yaml
+          if-no-files-found: warn
