@@ -29,7 +29,7 @@ describe("package.json", () => {
 
     // Then: identity matches the initialization plan review decisions
     expect(pkg.name).toBe("dsh-flightdeck");
-    expect(pkg.version).toBe("0.0.1");
+    expect(pkg.version).toBe("0.1.0-rc.1");
     expect(pkg.private).toBe(true);
     expect(pkg.type).toBe("module");
     expect(pkg.main).toBe("./out/main/index.js");
@@ -241,7 +241,7 @@ describe("package-lock.json", () => {
     expect(lock.lockfileVersion).toBe(3);
     expect(lock.name).toBe(pkg.name);
     expect(lock.version).toBe(pkg.version);
-    expect(lockEntryVersion(lock, "")).toBe("0.0.1");
+    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.1");
   });
 
   it("locks the exact pinned runtime inputs", async () => {
