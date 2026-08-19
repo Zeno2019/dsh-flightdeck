@@ -1,0 +1,214 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Package Windows x64 NSIS
+        run: npm run package:win
+      - name: Smoke unpacked and installed applications
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-StrictMode -Version Latest
+
+          $diagnosticsDirectory = Join-Path $env:RUNNER_TEMP "dsh-flightdeck-diagnostics"
+          New-Item -ItemType Directory -Path $diagnosticsDirectory -Force | Out-Null
+
+          # electron-builder's production dependency collector only walks
+          # `dependencies` chains, so peer-only DSH packages would silently
+          # vanish from the packaged app (the unpacked smoke used to pass
+          # only because Node escaped into the repository node_modules).
+          # Fail loudly here instead of as an opaque fatal marker later.
+          function Assert-PackagedRuntimeClosure {
+            param(
+              [Parameter(Mandatory)] [string] $Label,
+              [Parameter(Mandatory)] [string] $AppRoot
+            )
+
+            $repoModules = @(Get-ChildItem -Path "node_modules/@deepseek-ai" -Directory |
+              Select-Object -ExpandProperty Name)
+            $packagedModules = @(Get-ChildItem -Path (Join-Path $AppRoot "resources/app/node_modules/@deepseek-ai") -Directory -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty Name)
+            $missingModules = @($repoModules | Where-Object { $_ -notin $packagedModules })
+            if ($missingModules.Count -gt 0) {
+              throw "$Label runtime closure is missing $($missingModules.Count) package(s): $($missingModules -join ', ')"
+            }
+            Write-Host "::notice::$Label runtime closure complete: $($packagedModules.Count) @deepseek-ai packages."
+          }
+
+          function Invoke-PackagedSmoke {
+            param(
+              [Parameter(Mandatory)] [string] $Name,
+              [Parameter(Mandatory)] [string] $ExecutablePath,
+              [Parameter(Mandatory)] [string] $UserDataDirectory
+            )
+
+            $baselineNodePids = @(
+              Get-Process -Name "node" -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty Id
+            )
+            $logDirectory = Join-Path $UserDataDirectory "logs"
+            $logFile = Join-Path $logDirectory "harness.log"
+            Remove-Item -Path $UserDataDirectory -Recurse -Force -ErrorAction SilentlyContinue
+
+            $previousUserDataOverride = $env:DSH_FLIGHTDECK_USER_DATA
+            $appProcess = $null
+            try {
+              $env:DSH_FLIGHTDECK_USER_DATA = $UserDataDirectory
+              $resolvedExecutable = (Resolve-Path $ExecutablePath).Path
+              $appProcess = Start-Process `
+                -FilePath $resolvedExecutable `
+                -WorkingDirectory (Split-Path $resolvedExecutable) `
+                -PassThru
+
+              $endpointMarker = "[desktop] endpoint http://127.0.0.1:"
+              $endpointPattern = "(?m)^$([regex]::Escape($endpointMarker))(?<port>[0-9]+)\r?$"
+              $fatalPattern = "(?im)(?:^|\W)(?:fatal|uncaught(?:\s+)?exception|unhandled(?:\s+)?rejection)(?:\W|$)"
+              $deadline = (Get-Date).AddSeconds(180)
+              $readyResponse = $null
+              $lastProbeFailure = "endpoint marker not found"
+
+              while ((Get-Date) -lt $deadline) {
+                if (Test-Path $logFile) {
+                  $logContent = Get-Content -Path $logFile -Raw
+                  if ([regex]::IsMatch($logContent, $fatalPattern)) {
+                    throw "$Name log contains a fatal marker"
+                  }
+                  $endpointMatch = [regex]::Match($logContent, $endpointPattern)
+                  if ($endpointMatch.Success) {
+                    $endpoint = "http://127.0.0.1:$($endpointMatch.Groups['port'].Value)"
+                    try {
+                      $candidateResponse = Invoke-WebRequest -Uri $endpoint -Method Get -TimeoutSec 10 -ErrorAction Stop
+                      if ($candidateResponse.StatusCode -ge 200 -and $candidateResponse.StatusCode -lt 300) {
+                        $readyResponse = $candidateResponse
+                        break
+                      }
+                      $lastProbeFailure = "HTTP $($candidateResponse.StatusCode) from $endpoint"
+                    } catch {
+                      $lastProbeFailure = $_.Exception.Message
+                    }
+                  }
+                }
+                if ($appProcess.HasExited) {
+                  throw "$Name exited before readiness with code $($appProcess.ExitCode)"
+                }
+                Start-Sleep -Seconds 2
+              }
+
+              if ($null -eq $readyResponse) {
+                throw "$Name did not reach HTTP 2xx within 180s: $lastProbeFailure"
+              }
+              $finalLogContent = Get-Content -Path $logFile -Raw
+              if ([regex]::IsMatch($finalLogContent, $fatalPattern)) {
+                throw "$Name log contains a fatal marker"
+              }
+            } finally {
+              $env:DSH_FLIGHTDECK_USER_DATA = $previousUserDataOverride
+
+              if ($null -ne $appProcess -and -not $appProcess.HasExited) {
+                [void] $appProcess.CloseMainWindow()
+                if (-not $appProcess.WaitForExit(10000)) {
+                  & taskkill.exe /PID $appProcess.Id /T /F | Out-Null
+                  if (-not $appProcess.WaitForExit(10000)) {
+                    throw "$Name process tree did not stop"
+                  }
+                }
+              }
+
+              if (Test-Path $logFile) {
+                Copy-Item -Path $logFile -Destination (Join-Path $diagnosticsDirectory "$Name-harness.log") -Force
+              }
+
+              $remainingNewNodePids = @(
+                Get-Process -Name "node" -ErrorAction SilentlyContinue |
+                  Where-Object { $_.Id -notin $baselineNodePids } |
+                  Select-Object -ExpandProperty Id
+              )
+              if ($remainingNewNodePids.Count -gt 0) {
+                foreach ($nodePid in $remainingNewNodePids) {
+                  & taskkill.exe /PID $nodePid /T /F | Out-Null
+                }
+                throw "$Name left new node.exe PIDs: $($remainingNewNodePids -join ', ')"
+              }
+            }
+          }
+
+          Write-Host "::notice::Reduced smoke gate: HTTP 2xx readiness only; keyless DSH RPC is not exercised."
+          Write-Host "::notice::Each smoke phase uses an isolated user-data directory so the two phases never share DSH_HOME."
+          Assert-PackagedRuntimeClosure -Label "win-unpacked" -AppRoot "dist/win-unpacked"
+          Invoke-PackagedSmoke `
+            -Name "win-unpacked" `
+            -ExecutablePath "dist/win-unpacked/DSH Flightdeck.exe" `
+            -UserDataDirectory (Join-Path $env:RUNNER_TEMP "dsh-flightdeck-smoke-win-unpacked")
+
+          $setupExecutables = @(Get-ChildItem -Path "dist" -Filter "*-setup.exe" -File)
+          if ($setupExecutables.Count -ne 1) {
+            throw "expected exactly one setup executable, found $($setupExecutables.Count)"
+          }
+          $setupExecutable = $setupExecutables[0]
+          if ($null -eq $setupExecutable) {
+            throw "setup executable selection failed"
+          }
+          $installDirectory = Join-Path $env:RUNNER_TEMP "dsh-flightdeck-installed"
+          Remove-Item -Path $installDirectory -Recurse -Force -ErrorAction SilentlyContinue
+          $installerArguments = @("/S", "/D=$installDirectory")
+          $installerProcess = Start-Process `
+            -FilePath $setupExecutable.FullName `
+            -ArgumentList $installerArguments `
+            -Wait `
+            -PassThru
+          if ($installerProcess.ExitCode -ne 0) {
+            throw "silent setup failed with code $($installerProcess.ExitCode)"
+          }
+
+          $installedExecutable = Join-Path $installDirectory "DSH Flightdeck.exe"
+          Assert-PackagedRuntimeClosure -Label "installed" -AppRoot $installDirectory
+          Invoke-PackagedSmoke `
+            -Name "installed" `
+            -ExecutablePath $installedExecutable `
+            -UserDataDirectory (Join-Path $env:RUNNER_TEMP "dsh-flightdeck-smoke-installed")
+      - name: Upload unsigned NSIS setup
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-flightdeck-windows-x64-nsis
+          path: dist/dsh-flightdeck-windows-x64-setup.exe
+          if-no-files-found: error
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            dist/dsh-flightdeck-windows-x64-setup.exe `
+            --title "DSH Flightdeck ${{ github.ref_name }}" `
+            --prerelease `
+            --generate-notes
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-flightdeck-windows-diagnostics
+          path: |
+            ${{ runner.temp }}/dsh-flightdeck-diagnostics/*.log
+            dist/builder-debug.yml
+            dist/builder-effective-config.yaml
+          if-no-files-found: warn

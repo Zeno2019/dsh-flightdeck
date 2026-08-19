@@ -357,6 +357,35 @@ describe(".github/workflows/windows-package.yml", () => {
   });
 });
 
+describe(".github/workflows/release.yml", () => {
+  it("publishes a prerelease only after the packaged smokes pass", async () => {
+    // Given: the tag-triggered release workflow
+    const release = await readRepositoryFile(".github/workflows/release.yml");
+
+    // When: trigger, permissions, runner, and gates are inspected
+    // Then: only a version tag push can publish, and only with write
+    // permissions on the same smoke-gated pipeline as the manual workflow
+    expect(release).toMatch(/^on:\r?\n  push:\r?\n    tags: \['v\*'\]/m);
+    expect(release).toContain("contents: write");
+    expect(release).toContain("runs-on: windows-latest");
+    expect(release).toContain("timeout-minutes: 45");
+    for (const command of ["npm ci", "npm test", "npm run typecheck", "npm run package:win"] as const) {
+      expect(release).toContain(command);
+    }
+    expect(release).toContain("Assert-PackagedRuntimeClosure");
+    expect(release).toContain('Assert-PackagedRuntimeClosure -Label "win-unpacked"');
+    expect(release).toContain('Assert-PackagedRuntimeClosure -Label "installed"');
+
+    // Then: the prerelease publish attaches the exact setup executable
+    expect(release).toContain("gh release create");
+    expect(release).toContain("dsh-flightdeck-windows-x64-setup.exe");
+    expect(release).toContain("--prerelease");
+    expect(release).toContain("--generate-notes");
+    expect(release).toContain("GH_TOKEN: ${{ github.token }}");
+    expect(release).toContain("dsh-flightdeck-windows-diagnostics");
+  });
+});
+
 describe("src navigation security contracts", () => {
   it("bans ts-pattern .run() in every source file", async () => {
     // Given: every TypeScript source file under src/
