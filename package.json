@@ -61,7 +61,7 @@
     "productName": "DSH Flightdeck",
     "asar": false,
     "npmRebuild": false,
-    "compression": "maximum",
+    "compression": "normal",
     "directories": {
       "output": "dist",
       "buildResources": "build"

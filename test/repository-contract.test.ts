@@ -172,7 +172,7 @@ describe("package.json", () => {
     expect(readString(build, "productName")).toBe("DSH Flightdeck");
     expect(readBoolean(build, "asar")).toBe(false);
     expect(readBoolean(build, "npmRebuild")).toBe(false);
-    expect(readString(build, "compression")).toBe("maximum");
+    expect(readString(build, "compression")).toBe("normal");
     expect(readStringArray(build, "files")).toEqual(["out/**/*", "node_modules/**/*", "package.json", "!**/*.map", "!**/.gitmodules"]);
     expect(extraResources).toEqual([
       { from: "build/splash.html", to: "splash.html" },

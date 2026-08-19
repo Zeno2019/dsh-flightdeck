@@ -119,6 +119,23 @@ if (install.status !== 0) {
   fail(`npm install exited with code ${install.status}`);
 }
 
+// 3b. npm 11.6+ (runners with Node 24.19) blocks unapproved install
+//     scripts; node-pty's postinstall copies conpty.dll/OpenConsole.exe
+//     into build/Release/conpty and must run even when the policy
+//     skipped it. It is a pure local copy — safe to replay here.
+if (
+  process.platform === "win32" &&
+  !existsSync(join(PAYLOAD_DIR, "node_modules", "node-pty", "build", "Release", "conpty", "conpty.dll"))
+) {
+  const conpty = spawnSync(process.execPath, ["node_modules/node-pty/scripts/post-install.js"], {
+    cwd: PAYLOAD_DIR,
+    stdio: "inherit",
+  });
+  if (conpty.status !== 0) {
+    fail(`node-pty post-install (conpty assets) exited with code ${conpty.status ?? "unknown"}`);
+  }
+}
+
 // 4. Strip npm-only metadata that the profile does not need: the `.bin`
 //    shims are symlinks on POSIX (junction material the installer must
 //    never carry) and both lockfiles are installer metadata.
@@ -138,6 +155,21 @@ if (existsSync(ptyPrebuilds)) {
   for (const entry of readdirSync(ptyPrebuilds)) {
     if (!entry.startsWith(platformPrefix)) {
       rmSync(join(ptyPrebuilds, entry), { recursive: true, force: true });
+    }
+  }
+}
+
+// 4c. Fail loudly if the target platform's node-pty binary or conpty
+//     assets are missing — silently shipping a broken terminal plugin
+//     is worse than a red packaging run.
+const ptyBinary = join(ptyPrebuilds, `${process.platform}-${process.arch}`, "pty.node");
+if (!existsSync(ptyBinary)) {
+  fail(`node-pty prebuild missing for ${process.platform}-${process.arch}`);
+}
+if (process.platform === "win32") {
+  for (const asset of ["conpty.dll", "OpenConsole.exe"]) {
+    if (!existsSync(join(PAYLOAD_DIR, "node_modules", "node-pty", "build", "Release", "conpty", asset))) {
+      fail(`node-pty conpty asset missing: ${asset}`);
     }
   }
 }
