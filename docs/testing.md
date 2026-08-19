@@ -4,7 +4,7 @@ This document describes the test and verification responsibilities of DSH Flight
 
 ## Unit tests
 
-The suite runs with Vitest and covers pure logic without launching Electron. 89 tests pass locally.
+The suite runs with Vitest and covers pure logic without launching Electron. 103 tests in the suite.
 
 `test/runtime.test.ts` covers the runtime boundary:
 
@@ -50,6 +50,8 @@ On `windows-latest` CI these tests create and re-point real NTFS junctions, so t
 
 `test/runtime-entry.test.ts` spawns `build/runtime-node-entry.mjs` against failing fixture bins and asserts the fatal marker reaches stderr synchronously with the actual error reason before exit code 1.
 
+`test/profile-seed.test.ts` covers the vendored web profile seed: a fresh DSH_HOME receives the complete staged profile, an existing profile is never overwritten, and a missing staged source rejects so the caller can degrade to DSH's template initialization.
+
 ## Commands
 
 | Command | Purpose |
@@ -73,7 +75,7 @@ The packaging commands are Windows-x64-only. `scripts/verify-target.mjs` fails f
 Steps:
 
 1. `npm ci` (the postinstall script reapplies the pinned dependency patch), `npm test`, `npm run typecheck`.
-2. `npm run package:win` to build the unpacked app and the NSIS installer.
+2. `npm run package:win` to stage the vendored web profile, then build the unpacked app and the NSIS installer.
 3. Smoke the unpacked app at `dist/win-unpacked/DSH Flightdeck.exe` with an isolated user-data directory.
 4. Record that the current smoke is the reduced HTTP 2xx gate and does not exercise a keyless DSH RPC.
 5. Silently install the setup into a temporary directory with `/S /D=`.
@@ -97,12 +99,26 @@ The workflow requires exactly one setup executable, uploads it with `if-no-files
 
 Verified in this local macOS session:
 
-- 97 tests passing (`npm test`), including the new `profile-fallback` suite (junction create / identical re-heal / re-point / real-directory rejection) and the `runtime-entry` suite (fatal reasons reach stderr before exit 1).
+- 99 of 103 tests passing (`npm test`). The four remaining tests bind a loopback port (`reserveLoopbackPort`, `waitUntilReady`, and one `HarnessRuntime` case in `test/runtime.test.ts`) and fail with `EPERM` inside this restricted sandbox, which denies loopback binds; they pass on CI and on a normal developer machine.
 - Typecheck clean (`npm run typecheck`).
 - electron-vite build successful (`npm run build`), with the expected warning that only the main process is configured.
+- `scripts/prepare-profile-web.mjs` stages `dshmarket@1.14.1` and `dsh-find-plugin@0.3.6` into `build/profile-web`: symlink-free npm production tree, zero `@deepseek-ai` duplication, idempotent reruns. Plugin peers (`@deepseek-ai/cordis@4.0.1`, `@deepseek-ai/dsh-settings@0.1.0-rc.7`, `@deepseek-ai/dsh-tools@0.1.0-rc.7`) resolve against the repository closure.
 - A clean `npm ci` reapplies the pinned `@deepseek-ai/dsh-app-boot` patch through the `postinstall` script.
 - Desktop splash captures at `1280x800` and `800x600`, reviewed through `agent-vision-mcp` and two independent read-only passes with no blockers.
 
+Verified on CI and a real Windows machine (2026-08-19):
+
+- The `workflow_dispatch` Windows package run passed: both runtime closure notices reported 195 `@deepseek-ai` packages and both smokes reached HTTP 2xx; the `dsh-flightdeck-windows-x64-nsis` artifact was uploaded.
+- Real machine: wizard install, launch with the DSH UI loading, second launch is a single instance (no multi-instance), clean uninstall, and the bundled `@vscode/ripgrep-win32-x64@1.18.0` binary is present for file search.
+
 Pending, not yet executed or proven:
 
-- The `workflow_dispatch` Windows package and smoke run. The Windows-only junction re-point branch of the repair runs under `npm test` on `windows-latest` CI, but the end-to-end packaged smoke still needs a manual dispatch.
+- The vendored web profile seed on a packaged Windows build: the staging script is verified locally, but the first-launch seed has not yet run through a Windows smoke. The next `workflow_dispatch` run on this revision is the gate.
+
+## Manual vendored-profile checks
+
+On a real Windows machine, after installing this revision:
+
+- The installer carries the seed under `%LOCALAPPDATA%\Programs\DSH Flightdeck\resources\profile-web` (manifest, `cordis.patch.yml`, and the five-package `node_modules` tree).
+- After first launch, `%APPDATA%\DSH Flightdeck\harness\profiles\web` exists with the `dsh.profile.bundles` list and `node_modules\dshmarket`; the marketplace and the find plugin are usable in the DSH UI.
+- A second launch never overwrites an existing or user-edited profile.

@@ -93,6 +93,16 @@ electron-builder's production dependency collector walks only `dependencies` edg
 
 The full peer-only closure of `@deepseek-ai/dsh@0.1.0-rc.7` (19 packages) is declared as direct dependencies in `package.json`, and `windows-package.yml` verifies before every smoke that each repository `node_modules/@deepseek-ai` package exists in both the `win-unpacked` and the installed trees — a future DSH upgrade that changes the peer closure fails the packaging step loudly instead of surfacing as an opaque fatal marker.
 
+## Vendored web profile seeding
+
+DSH initializes a missing `web` profile from a template with empty dependencies, and `dsh plugin` is the only supported installer (pnpm + network on the target machine). The desktop app ships a prepared profile instead:
+
+- `scripts/prepare-profile-web.mjs` stages `build/profile-web` at packaging time: the profile manifest (template bundles `@deepseek-ai/dsh-base` and `@deepseek-ai/dsh-web-app` plus the two approved plugins), an empty `cordis.patch.yml`, and a symlink-free npm production tree for `dshmarket@1.14.1` and `dsh-find-plugin@0.3.6`. Plugin peer dependencies are deliberately not vendored — they resolve at runtime from the packaged DSH closure healed into `$DSH_HOME/profiles/node_modules`.
+- electron-builder ships the staged tree as `resources/profile-web` through `extraResources`.
+- On first launch only (packaged mode), `src/main/profile-seed.ts` copies the seed into `<userData>/harness/profiles/web`, keyed on the target `package.json` so an existing or user-edited profile is never overwritten.
+- A seed failure degrades to DSH's empty-template initialization instead of blocking startup.
+- Runtime needs no pnpm and no network. Plugin versions are frozen in the prepare script; changing them requires a rebuild. Adding or removing plugins later needs pnpm on the machine (the upstream `dsh plugin` path).
+
 ## Startup and shutdown
 
 Startup:
@@ -154,4 +164,5 @@ ts-pattern is pinned for readability, not exhaustiveness for its own sake:
 | Lifecycle constants | `src/shared/contracts.ts` |
 | Security policy | `src/main/security-policy.ts` |
 | Windows smoke procedure | `.github/workflows/windows-package.yml` |
+| Release procedure | `.github/workflows/release.yml` |
 | Documentation | descriptive only, never authoritative |

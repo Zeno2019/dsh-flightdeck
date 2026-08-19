@@ -14,6 +14,19 @@ Development toolchain: electron 43.4.0, electron-builder 26.15.3, electron-vite 
 
 `patch-package` reapplies `patches/@deepseek-ai+dsh-app-boot+0.1.0-rc.7.patch` on install: it repairs the DSH profile module-fallback so Windows NTFS directory junctions are recognized and removed with `rmdirSync` instead of `unlinkSync`.
 
+## Packaged runtime closure
+
+electron-builder's production collector drops packages reachable only through `peerDependencies`, so the full peer closure of `@deepseek-ai/dsh` (20 `@deepseek-ai` packages including `dsh` itself) is pinned as direct dependencies in `package.json`. Both package workflows verify the packaged tree against the repository `node_modules/@deepseek-ai` closure before every smoke (`Assert-PackagedRuntimeClosure`), so a future DSH upgrade that changes the peer closure fails loudly at packaging time.
+
+## Bundled plugins
+
+The installer vendors two approved DSH plugins as a first-launch web profile seed:
+
+- `dshmarket` 1.14.1
+- `dsh-find-plugin` 0.3.6
+
+`scripts/prepare-profile-web.mjs` stages them at packaging time as a symlink-free npm production tree with the profile manifest (template bundles plus the two plugins) and an empty `cordis.patch.yml`. Plugin peer dependencies are deliberately not vendored: they resolve at runtime from the packaged DSH closure. On first launch the app copies the profile into `<userData>/harness/profiles/web` only when it does not exist yet; later launches never overwrite user changes. Plugin versions are frozen in the prepare script — bump them there and rebuild. Adding or removing plugins later needs pnpm on the machine (the upstream `dsh plugin` path).
+
 ## Prerequisites
 
 - Node.js >= 22 and npm for development.
@@ -33,11 +46,13 @@ Development toolchain: electron 43.4.0, electron-builder 26.15.3, electron-vite 
 
 ## Packaging
 
-Both packaging commands are Windows-x64-only. The NSIS installer is unsigned, so Windows SmartScreen shows a warning when it runs. There is no code signing, no auto-update, and no release publishing. CI uploads the installer as an artifact only.
+Both packaging commands are Windows-x64-only. The NSIS installer is unsigned, so Windows SmartScreen shows a warning when it runs. There is no code signing and no auto-update. The manual workflow uploads the installer as an artifact; a `v*` tag push runs `release.yml`, which repeats the same smoke-gated pipeline and then publishes the setup executable as a GitHub prerelease.
 
 ## Windows smoke workflow
 
-`.github/workflows/windows-package.yml` runs on `workflow_dispatch`. It builds the installer, then smokes both the unpacked and the silently installed application: each phase gets its own user-data directory (`DSH_FLIGHTDECK_USER_DATA`), the workflow discovers the DSH loopback endpoint from the harness log, polls HTTP 2xx, closes the app gracefully, and verifies no DSH Node process remains. This workflow has not been executed or proven in this local macOS session.
+`.github/workflows/windows-package.yml` runs on `workflow_dispatch`. It builds the installer, then smokes both the unpacked and the silently installed application: each phase gets its own user-data directory (`DSH_FLIGHTDECK_USER_DATA`), the workflow discovers the DSH loopback endpoint from the harness log, polls HTTP 2xx, closes the app gracefully, and verifies no DSH Node process remains. `.github/workflows/release.yml` runs the same pipeline on `v*` tags and publishes the prerelease.
+
+Executed successfully on 2026-08-19 (master@71d55e1): both runtime closure notices reported 195 `@deepseek-ai` packages and both smokes reached HTTP 2xx. The installer was then verified on a real Windows machine — wizard install, launch, single-instance second launch, clean uninstall, and bundled ripgrep 1.18.0 present.
 
 ## Project structure
 
@@ -45,6 +60,7 @@ Both packaging commands are Windows-x64-only. The NSIS installer is unsigned, so
 dsh-flightdeck/
   .github/workflows/
     ci.yml
+    release.yml
     windows-package.yml
   build/
     runtime-node-entry.mjs
@@ -56,10 +72,12 @@ dsh-flightdeck/
   patches/
     @deepseek-ai+dsh-app-boot+0.1.0-rc.7.patch
   scripts/
+    prepare-profile-web.mjs
     verify-target.mjs
   src/
     main/
       index.ts
+      profile-seed.ts
       reserve-port.ts
       runtime.ts
       runtime-paths.ts
@@ -69,6 +87,7 @@ dsh-flightdeck/
       contracts.ts
   test/
     profile-fallback.test.ts
+    profile-seed.test.ts
     repository-contract.test.ts
     repository-reader.ts
     runtime-entry.test.ts
