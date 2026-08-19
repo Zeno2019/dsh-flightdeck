@@ -33,7 +33,7 @@ First launch shows a brief splash page, then the DSH Web UI. That's it.
 ## Positioning
 
 - **Does**: a DSH desktop launcher for non-programmers — double-click install, curated plugins preinstalled, works out of the box.
-- **Does not**: it is not DSH or DeepSeek itself, nor a replacement; there is no auto-update; and it offers no deep theme customization or other deep-customization entry aimed at developers.
+- **Does not**: it is not DSH or DeepSeek itself, nor a replacement; it offers no deep theme customization or other deep-customization entry aimed at developers.
 - **Might do** (no promises): more preinstalled plugins; a localized interface; more platforms.
 
 ## Troubleshooting

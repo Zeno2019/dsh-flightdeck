@@ -90,7 +90,7 @@ dsh-flightdeck/
 
 ## 打包
 
-打包按平台门控:Windows 命令仅限 x64,macOS 命令仅限 Apple Silicon arm64,各自构建前先校验目标。打包脚本会先跑 `scripts/prepare-profile-web.mjs` 暂存插件种子,再 electron-builder。产物名:`dsh-flightdeck-mac-${arch}.dmg` 与 `dsh-flightdeck-windows-${arch}-setup.exe`。安装器不签名、不公证,macOS dmg 首启需 Gatekeeper 放行(用户向说明见 README)。项目不做代码签名,也没有自动更新。macOS 目标机上 dshmarket 会探测 PATH 中的 `/opt/homebrew/bin`:装了 Homebrew 的机器天然满足该探测,但应用本身不依赖 Homebrew。
+打包按平台门控:Windows 命令仅限 x64,macOS 命令仅限 Apple Silicon arm64,各自构建前先校验目标。打包脚本会先跑 `scripts/prepare-profile-web.mjs` 暂存插件种子,再 electron-builder。产物名:`dsh-flightdeck-mac-${arch}.dmg` 与 `dsh-flightdeck-windows-${arch}-setup.exe`。macOS dmg 首启需 Gatekeeper 放行(用户向说明见 README)。macOS 目标机上 dshmarket 会探测 PATH 中的 `/opt/homebrew/bin`:装了 Homebrew 的机器天然满足该探测,但应用本身不依赖 Homebrew。
 
 ## CI 工作流
 
