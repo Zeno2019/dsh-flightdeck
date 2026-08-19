@@ -5,6 +5,7 @@ import { match } from "ts-pattern";
 import type { RuntimeOutcome, RuntimeSnapshot } from "../shared/contracts.js";
 import { resolveRuntimePaths } from "./runtime-paths.js";
 import { HarnessRuntime } from "./runtime.js";
+import { seedWebProfile } from "./profile-seed.js";
 import { secureWindow } from "./security.js";
 import type { AppSecurityPolicy } from "./security-policy.js";
 
@@ -117,10 +118,25 @@ async function startMainShell(): Promise<void> {
   window.show();
 
   const userData = app.getPath("userData");
+  const dshHome = join(userData, "harness");
+
+  // The packaged app ships a prepared web profile so the two approved DSH
+  // plugins work without pnpm or network on the target machine. Seeding is
+  // first-launch-only (the target manifest gates it) and a failure degrades
+  // to DSH's own empty-template initialization instead of blocking startup.
+  if (app.isPackaged) {
+    try {
+      const seeded = await seedWebProfile(dshHome, join(process.resourcesPath, "profile-web"));
+      if (seeded) console.log("[desktop] seeded web profile from packaged resources");
+    } catch (error) {
+      reportMainFailure("web profile seed", error);
+    }
+  }
+
   const harnessRuntime = new HarnessRuntime({
     paths,
     launchDirectory: join(userData, "launch"),
-    dshHome: join(userData, "harness"),
+    dshHome,
     logFile: join(userData, "logs", "harness.log"),
     platform: process.platform,
     env: process.env,

@@ -16,8 +16,8 @@
     "test:watch": "vitest",
     "postinstall": "patch-package",
     "verify:target:win": "node scripts/verify-target.mjs win32 x64",
-    "package:dir": "npm run verify:target:win && npm run build && electron-builder --dir --win --x64 --publish never",
-    "package:win": "npm run verify:target:win && npm run build && electron-builder --win --x64 --publish never"
+    "package:dir": "npm run verify:target:win && node scripts/prepare-profile-web.mjs && npm run build && electron-builder --dir --win --x64 --publish never",
+    "package:win": "npm run verify:target:win && node scripts/prepare-profile-web.mjs && npm run build && electron-builder --win --x64 --publish never"
   },
   "dependencies": {
     "@deepseek-ai/cordis-plugin-group": "1.0.1",
@@ -76,6 +76,10 @@
       {
         "from": "build/runtime-node-entry.mjs",
         "to": "runtime-node-entry.mjs"
+      },
+      {
+        "from": "build/profile-web",
+        "to": "profile-web"
       }
     ],
     "win": {

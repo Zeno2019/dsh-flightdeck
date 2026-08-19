@@ -145,8 +145,10 @@ describe("package.json", () => {
 
     // Then: both packaging commands verify the Windows target and never publish
     expect(requiredString(scripts, "package:dir")).toContain("verify:target:win");
+    expect(requiredString(scripts, "package:dir")).toContain("prepare-profile-web.mjs");
     expect(requiredString(scripts, "package:dir")).toContain("--publish never");
     expect(requiredString(scripts, "package:win")).toContain("verify:target:win");
+    expect(requiredString(scripts, "package:win")).toContain("prepare-profile-web.mjs");
     expect(requiredString(scripts, "package:win")).toContain("--publish never");
   });
 
@@ -174,6 +176,7 @@ describe("package.json", () => {
     expect(extraResources).toEqual([
       { from: "build/splash.html", to: "splash.html" },
       { from: "build/runtime-node-entry.mjs", to: "runtime-node-entry.mjs" },
+      { from: "build/profile-web", to: "profile-web" },
     ]);
     expect(targets).toHaveLength(1);
     expect(readString(target, "target")).toBe("nsis");
@@ -196,6 +199,33 @@ describe("package.json", () => {
     for (const forbiddenKey of ["publish", "mac", "linux", "electronUpdaterCompatibility"] as const) {
       expect(build[forbiddenKey]).toBeUndefined();
     }
+  });
+
+  it("vendors the two approved DSH plugins as a first-launch web profile seed", async () => {
+    // Given: the packaging-time prepare script, ignore rules, and seed seam
+    const prepare = await readRepositoryFile("scripts/prepare-profile-web.mjs");
+    const gitignore = await readRepositoryFile(".gitignore");
+    const seedModule = await readRepositoryFile("src/main/profile-seed.ts");
+    const index = await readRepositoryFile("src/main/index.ts");
+
+    // Then: only the two approved plugins are pinned and bundled, and the
+    // staged npm tree can never leak into git
+    expect(prepare).toContain('dshmarket: "1.14.1"');
+    expect(prepare).toContain('"dsh-find-plugin": "0.3.6"');
+    expect(prepare).toContain('"@deepseek-ai/dsh-base"');
+    expect(prepare).toContain('"@deepseek-ai/dsh-web-app"');
+    expect(prepare).toContain("cordis.patch.yml");
+    expect(prepare).toContain('["install", "--omit=dev", "--save-exact", "--no-audit", "--no-fund", "--legacy-peer-deps"]');
+    expect(prepare).toContain('for (const entry of [".bin", ".package-lock.json"])');
+    expect(gitignore).toContain("/build/profile-web/");
+
+    // Then: the packaged app seeds a fresh DSH_HOME exactly once, keyed on
+    // the target manifest, and degrades instead of blocking startup
+    expect(seedModule).toContain('join(dshHome, "profiles", "web")');
+    expect(seedModule).toContain('join(targetDir, "package.json")');
+    expect(index).toContain("seedWebProfile(");
+    expect(index).toContain('process.resourcesPath, "profile-web"');
+    expect(index).toContain("app.isPackaged");
   });
 });
 
