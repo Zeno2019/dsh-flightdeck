@@ -30,13 +30,14 @@ electron-builder's production collector drops packages reachable only through `p
 
 ## Bundled plugins
 
-The installer vendors three approved DSH plugins as a first-launch web profile seed:
+The installer vendors four approved DSH plugins as a first-launch web profile seed:
 
 - `dshmarket` 1.14.1
 - `dsh-find-plugin` 0.3.7
 - `dsh-anchored-subagent` 0.3.0 — GitHub-only, pinned to commit `31fdd22` through a codeload tarball URL (resolved at packaging time, so the target machine needs no git). Each session opens its first request under a Minimal two-tool set, then unlocks the full tool catalog
+- `dsh-better-sidebar` 0.13.1 — VSCode-style right sidebar (file tree, editor, terminal, git panels) built into the web UI; its `node-pty` ships N-API prebuilds for every target platform, so no native compilation happens anywhere
 
-`scripts/prepare-profile-web.mjs` stages them at packaging time as a symlink-free npm production tree with the profile manifest (template bundles plus the three plugins) and an empty `cordis.patch.yml`. Plugin peer dependencies are deliberately not vendored: they resolve at runtime from the packaged DSH closure. On first launch the app copies the profile into `<userData>/harness/profiles/web` only when it does not exist yet; later launches never overwrite user changes. Plugin versions are frozen in the prepare script — bump them there and rebuild. Adding or removing plugins later needs pnpm on the machine (the upstream `dsh plugin` path).
+`scripts/prepare-profile-web.mjs` stages them at packaging time as a symlink-free npm production tree with the profile manifest (template bundles plus the four plugins) and an empty `cordis.patch.yml`. Plugin peer dependencies are deliberately not vendored: they resolve at runtime from the packaged DSH closure. On first launch the app copies the profile into `<userData>/harness/profiles/web` only when it does not exist yet; later launches never overwrite user changes. Plugin versions are frozen in the prepare script — bump them there and rebuild. Adding or removing plugins later needs pnpm on the machine (the upstream `dsh plugin` path).
 
 ## Prerequisites
 

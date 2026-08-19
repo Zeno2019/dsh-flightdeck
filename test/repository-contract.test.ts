@@ -272,6 +272,7 @@ describe("package.json", () => {
     expect(prepare).toContain('"dsh-find-plugin": "0.3.7"');
     expect(prepare).toContain('const ANCHORED_SUBAGENT_SHA = "31fdd22a4265aef3107d9fca05854bea78a9af10"');
     expect(prepare).toContain("https://codeload.github.com/GY-Bai/dsh-anchored-subagent/tar.gz/${ANCHORED_SUBAGENT_SHA}");
+    expect(prepare).toContain('"dsh-better-sidebar": "0.13.1"');
     expect(prepare).toContain("pnpm-workspace.yaml");
     expect(prepare).toContain("nodeLinker: hoisted");
     expect(prepare).toContain("autoInstallPeers: false");
@@ -362,7 +363,7 @@ describe(".github/workflows/windows-package.yml", () => {
     expect(workflow).toContain("timeout-minutes: 45");
     expect(workflow).toContain("actions/checkout@v5");
     expect(workflow).toContain("actions/setup-node@v5");
-    expect(workflow).toContain("node-version: 22");
+    expect(workflow).toContain("node-version: 24.19.0");
     expect(workflow).toContain("cache: npm");
     for (const command of ["npm ci", "npm test", "npm run typecheck", "npm run package:win"] as const) {
       expect(workflow).toContain(command);
@@ -406,7 +407,7 @@ describe(".github/workflows/windows-package.yml", () => {
     expect(workflow).toContain("resources/profile-web/payload");
     expect(workflow).toContain('Assert-VendoredProfileSeed -Label "win-unpacked"');
     expect(workflow).toContain('Assert-VendoredProfileSeed -Label "installed"');
-    expect(workflow).toContain("vendored profile seed complete (dshmarket, dsh-find-plugin, dsh-anchored-subagent)");
+    expect(workflow).toContain("vendored profile seed complete (dshmarket, dsh-find-plugin, dsh-anchored-subagent, dsh-better-sidebar)");
     expect(workflow).toContain("vendored profile seed is missing");
 
     // Then: the vendored pnpm the launcher forwards to is asserted too — the

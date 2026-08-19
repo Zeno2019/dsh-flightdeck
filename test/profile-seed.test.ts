@@ -9,6 +9,7 @@ async function writeStagedProfile(root: string): Promise<string> {
   await mkdir(join(sourceDir, "node_modules", "dshmarket"), { recursive: true });
   await mkdir(join(sourceDir, "node_modules", "dsh-find-plugin"), { recursive: true });
   await mkdir(join(sourceDir, "node_modules", "dsh-anchored-subagent"), { recursive: true });
+  await mkdir(join(sourceDir, "node_modules", "dsh-better-sidebar"), { recursive: true });
   await writeFile(join(sourceDir, "package.json"), '{"name":"dsh-profile-web"}\n', "utf8");
   await writeFile(join(sourceDir, "cordis.patch.yml"), "[]\n", "utf8");
   await writeFile(join(sourceDir, "pnpm-workspace.yaml"), "nodeLinker: hoisted\nautoInstallPeers: false\n", "utf8");
@@ -17,6 +18,11 @@ async function writeStagedProfile(root: string): Promise<string> {
   await writeFile(
     join(sourceDir, "node_modules", "dsh-anchored-subagent", "package.json"),
     '{"name":"dsh-anchored-subagent"}\n',
+    "utf8",
+  );
+  await writeFile(
+    join(sourceDir, "node_modules", "dsh-better-sidebar", "package.json"),
+    '{"name":"dsh-better-sidebar"}\n',
     "utf8",
   );
   return sourceDir;
@@ -44,6 +50,9 @@ describe("profile seed", () => {
       expect(
         await readFile(join(dshHome, "profiles", "web", "node_modules", "dsh-anchored-subagent", "package.json"), "utf8"),
       ).toContain("dsh-anchored-subagent");
+      expect(
+        await readFile(join(dshHome, "profiles", "web", "node_modules", "dsh-better-sidebar", "package.json"), "utf8"),
+      ).toContain("dsh-better-sidebar");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

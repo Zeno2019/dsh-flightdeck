@@ -9,7 +9,7 @@
 // so the staged tree is safe for the NSIS installer (no junction material).
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -59,6 +59,7 @@ const PROFILE_MANIFEST = {
     dshmarket: "1.14.1",
     "dsh-find-plugin": "0.3.7",
     "dsh-anchored-subagent": ANCHORED_SUBAGENT_SPEC,
+    "dsh-better-sidebar": "0.13.1",
   },
   dsh: {
     profile: {
@@ -68,6 +69,7 @@ const PROFILE_MANIFEST = {
         "dshmarket",
         "dsh-find-plugin",
         "dsh-anchored-subagent",
+        "dsh-better-sidebar",
       ],
     },
   },
@@ -125,12 +127,28 @@ for (const entry of [".bin", ".package-lock.json"]) {
 }
 rmSync(join(PAYLOAD_DIR, "package-lock.json"), { force: true });
 
+// 4b. node-pty ships N-API prebuilds for every OS/arch (~70MB total);
+//     keep only the build platform's binaries. Packaging is gated to
+//     same-OS runs (verify-target), so the build platform is the target
+//     platform and the loader only ever reads its own prebuilds dir.
+const ptyPrebuilds = join(PAYLOAD_DIR, "node_modules", "node-pty", "prebuilds");
+if (existsSync(ptyPrebuilds)) {
+  const platformPrefix =
+    process.platform === "win32" ? "win32-" : process.platform === "darwin" ? "darwin-" : "linux-";
+  for (const entry of readdirSync(ptyPrebuilds)) {
+    if (!entry.startsWith(platformPrefix)) {
+      rmSync(join(ptyPrebuilds, entry), { recursive: true, force: true });
+    }
+  }
+}
+
 // 5. Prove the approved plugins landed before the installer consumes
 //    the staging directory.
 const APPROVED_PLUGINS = [
   "dshmarket",
   "dsh-find-plugin",
   "dsh-anchored-subagent",
+  "dsh-better-sidebar",
 ];
 for (const plugin of APPROVED_PLUGINS) {
   if (!existsSync(join(PAYLOAD_DIR, "node_modules", plugin, "package.json"))) {
@@ -140,5 +158,6 @@ for (const plugin of APPROVED_PLUGINS) {
 
 console.log(
   "prepare-profile-web: staged dshmarket@1.14.1, dsh-find-plugin@0.3.7, " +
-  `dsh-anchored-subagent@0.3.0 (${ANCHORED_SUBAGENT_SHA.slice(0, 7)})`,
+  `dsh-anchored-subagent@0.3.0 (${ANCHORED_SUBAGENT_SHA.slice(0, 7)}), ` +
+  "dsh-better-sidebar@0.13.1",
 );
