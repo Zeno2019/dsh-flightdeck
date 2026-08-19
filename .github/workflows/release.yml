@@ -12,8 +12,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -235,7 +235,7 @@ jobs:
             -ExecutablePath $installedExecutable `
             -UserDataDirectory (Join-Path $env:RUNNER_TEMP "dsh-flightdeck-smoke-installed")
       - name: Upload unsigned NSIS setup
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dsh-flightdeck-windows-x64-nsis
           path: dist/dsh-flightdeck-windows-x64-setup.exe
@@ -251,7 +251,7 @@ jobs:
             --generate-notes
       - name: Upload failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dsh-flightdeck-windows-diagnostics
           path: |
@@ -265,8 +265,8 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -471,7 +471,7 @@ jobs:
         run: gh release upload "${{ github.ref_name }}" dist/dsh-flightdeck-mac-arm64.dmg --clobber
       - name: Upload failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dsh-flightdeck-macos-diagnostics
           path: |

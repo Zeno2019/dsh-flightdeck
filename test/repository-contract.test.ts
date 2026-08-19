@@ -358,8 +358,8 @@ describe(".github/workflows/windows-package.yml", () => {
     expect(workflow).toContain("contents: read");
     expect(workflow).toContain("runs-on: windows-latest");
     expect(workflow).toContain("timeout-minutes: 45");
-    expect(workflow).toContain("actions/checkout@v4");
-    expect(workflow).toContain("actions/setup-node@v4");
+    expect(workflow).toContain("actions/checkout@v5");
+    expect(workflow).toContain("actions/setup-node@v5");
     expect(workflow).toContain("node-version: 22");
     expect(workflow).toContain("cache: npm");
     for (const command of ["npm ci", "npm test", "npm run typecheck", "npm run package:win"] as const) {
@@ -422,7 +422,7 @@ describe(".github/workflows/windows-package.yml", () => {
 
     // When: upload and authority tokens are inspected
     // Then: the setup is mandatory, diagnostics are failure-only, and distribution remains impossible
-    expect(workflow).toContain("actions/upload-artifact@v4");
+    expect(workflow).toContain("actions/upload-artifact@v5");
     expect(workflow).toContain("dist/dsh-flightdeck-windows-x64-setup.exe");
     expect(workflow).toContain("if-no-files-found: error");
     expect(workflow).toContain("if: failure()");
