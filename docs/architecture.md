@@ -90,6 +90,8 @@ The child is spawned with `windowsHide: true`, piped stdio, `NO_COLOR=1`, and `E
 
 The DSH peer-only closure (19 packages) is declared as direct dependencies in `package.json` so it ships in the packaged artifact.
 
+The production dependency tree is installed from the lockfile by `scripts/prepare-app-node-modules.mjs` into `build/app-prod` and injected as `resources/app/node_modules` through a `files` `{from,to}` entry. The `beforeBuild` hook returns false, which makes electron-builder treat the dependencies as externally managed and skip its own npm-list-based collector — that collector intermittently hangs on Windows CI runners. Note `npmRebuild` must not be set to false: it short-circuits electron-builder before the hook runs, silently re-enabling the collector.
+
 ## Vendored web profile seeding
 
 The profile seed ships via `extraResources`, seeds on first launch only, and never overwrites a user-edited profile; runtime needs no pnpm or network.

@@ -147,10 +147,14 @@ describe("package.json", () => {
     // Then: both packaging commands verify the Windows target and never publish
     expect(requiredString(scripts, "package:dir")).toContain("verify:target:win");
     expect(requiredString(scripts, "package:dir")).toContain("prepare-profile-web.mjs");
+    expect(requiredString(scripts, "package:dir")).toContain("npm run prepare:app");
     expect(requiredString(scripts, "package:dir")).toContain("--publish never");
     expect(requiredString(scripts, "package:win")).toContain("verify:target:win");
     expect(requiredString(scripts, "package:win")).toContain("prepare-profile-web.mjs");
+    expect(requiredString(scripts, "package:win")).toContain("npm run prepare:app");
     expect(requiredString(scripts, "package:win")).toContain("--publish never");
+    expect(requiredString(scripts, "package:mac")).toContain("npm run prepare:app");
+    expect(requiredString(scripts, "package:mac:dir")).toContain("npm run prepare:app");
   });
 
   it("declares the exact Windows x64 NSIS builder contract", async () => {
@@ -171,9 +175,19 @@ describe("package.json", () => {
     expect(readString(build, "appId")).toBe("dev.zeno.dsh-flightdeck");
     expect(readString(build, "productName")).toBe("DSH Flightdeck");
     expect(readBoolean(build, "asar")).toBe(false);
-    expect(readBoolean(build, "npmRebuild")).toBe(false);
+    // npmRebuild must NOT be false: electron-builder 26.x short-circuits
+    // installAppDependencies before consulting the beforeBuild hook when it
+    // is (packager.js:454-457), which would leave the collector enabled.
+    expect(build["npmRebuild"]).toBeUndefined();
+    expect(readString(build, "beforeBuild")).toBe("scripts/before-build.cjs");
     expect(readString(build, "compression")).toBe("normal");
-    expect(readStringArray(build, "files")).toEqual(["out/**/*", "node_modules/**/*", "package.json", "!**/*.map", "!**/.gitmodules"]);
+    expect(build["files"]).toEqual([
+      "out/**/*",
+      { from: "build/app-prod/node_modules", to: "node_modules" },
+      "package.json",
+      "!**/*.map",
+      "!**/.gitmodules",
+    ]);
     expect(extraResources).toEqual([
       { from: "build/splash.html", to: "splash.html" },
       { from: "build/runtime-node-entry.mjs", to: "runtime-node-entry.mjs" },

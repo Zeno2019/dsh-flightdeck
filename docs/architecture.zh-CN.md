@@ -92,6 +92,8 @@ harness 会输出 `[desktop] endpoint http://127.0.0.1:<port>`,用于日志与�
 
 DSH peer-only 闭包(19 个包)在 `package.json` 中声明为直接依赖,确保被打进产物。
 
+生产依赖树由 `scripts/prepare-app-node-modules.mjs` 按 lockfile 安装到 `build/app-prod`,再经 `files` 的 `{from,to}` 条目注入为 `resources/app/node_modules`。`beforeBuild` 钩子返回 false,使 electron-builder 将依赖视为外部已处理、完全跳过其内置的 npm list 收集器——该收集器在 Windows CI runner 上会间歇性挂起。注意不得设置 `npmRebuild: false`:它会在钩子执行前就让 electron-builder 提前返回,静默重新启用收集器。
+
 ## Vendored web profile 种子
 
 profile 种子经 `extraResources` 分发、仅首次启动播种、绝不覆盖用户已修改的 profile;运行时不需要 pnpm 与网络。

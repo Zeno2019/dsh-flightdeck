@@ -16,6 +16,7 @@ coverage/
 .dsh-uploads
 
 /build/profile-web/
+/build/app-prod/
 .tmp-npm-cache/
 
 .tmp-electron-cache/
