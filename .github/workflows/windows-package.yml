@@ -81,6 +81,23 @@ jobs:
             Write-Host "::notice::$Label vendored profile seed complete (dshmarket, dsh-find-plugin)."
           }
 
+          # The pnpm launcher written under userData/tools forwards to this
+          # entry (pnpm@11.7.0 shipped as a direct dependency). If
+          # electron-builder's production collector dropped it, the market's
+          # one-click pnpm setup would fail again on tooling-free machines.
+          function Assert-VendoredPnpm {
+            param(
+              [Parameter(Mandatory)] [string] $Label,
+              [Parameter(Mandatory)] [string] $AppRoot
+            )
+
+            $pnpmEntry = Join-Path $AppRoot "resources/app/node_modules/pnpm/bin/pnpm.cjs"
+            if (-not (Test-Path $pnpmEntry)) {
+              throw "$Label vendored pnpm is missing from the packaged closure (electron-builder dropped node_modules/pnpm): $pnpmEntry"
+            }
+            Write-Host "::notice::vendored pnpm 11.7.0 present in packaged tree."
+          }
+
           function Invoke-PackagedSmoke {
             param(
               [Parameter(Mandatory)] [string] $Name,
@@ -182,6 +199,7 @@ jobs:
           Write-Host "::notice::Each smoke phase uses an isolated user-data directory so the two phases never share DSH_HOME."
           Assert-PackagedRuntimeClosure -Label "win-unpacked" -AppRoot "dist/win-unpacked"
           Assert-VendoredProfileSeed -Label "win-unpacked" -AppRoot "dist/win-unpacked"
+          Assert-VendoredPnpm -Label "win-unpacked" -AppRoot "dist/win-unpacked"
           Invoke-PackagedSmoke `
             -Name "win-unpacked" `
             -ExecutablePath "dist/win-unpacked/DSH Flightdeck.exe" `
@@ -210,6 +228,7 @@ jobs:
           $installedExecutable = Join-Path $installDirectory "DSH Flightdeck.exe"
           Assert-PackagedRuntimeClosure -Label "installed" -AppRoot $installDirectory
           Assert-VendoredProfileSeed -Label "installed" -AppRoot $installDirectory
+          Assert-VendoredPnpm -Label "installed" -AppRoot $installDirectory
           Invoke-PackagedSmoke `
             -Name "installed" `
             -ExecutablePath $installedExecutable `

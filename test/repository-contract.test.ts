@@ -376,6 +376,14 @@ describe(".github/workflows/windows-package.yml", () => {
     expect(workflow).toContain('Assert-VendoredProfileSeed -Label "installed"');
     expect(workflow).toContain("vendored profile seed complete (dshmarket, dsh-find-plugin)");
     expect(workflow).toContain("vendored profile seed is missing");
+
+    // Then: the vendored pnpm the launcher forwards to is asserted too — the
+    // market's one-click setup dies on tooling-free machines without it
+    expect(workflow).toContain("Assert-VendoredPnpm");
+    expect(workflow).toContain("resources/app/node_modules/pnpm/bin/pnpm.cjs");
+    expect(workflow).toContain('Assert-VendoredPnpm -Label "win-unpacked"');
+    expect(workflow).toContain('Assert-VendoredPnpm -Label "installed"');
+    expect(workflow).toContain("::notice::vendored pnpm 11.7.0 present in packaged tree.");
   });
 
   it("uploads one setup with strict absence handling and no distribution authority", async () => {
@@ -419,6 +427,11 @@ describe(".github/workflows/release.yml", () => {
     expect(release).toContain("resources/profile-web/payload");
     expect(release).toContain('Assert-VendoredProfileSeed -Label "win-unpacked"');
     expect(release).toContain('Assert-VendoredProfileSeed -Label "installed"');
+    expect(release).toContain("Assert-VendoredPnpm");
+    expect(release).toContain("resources/app/node_modules/pnpm/bin/pnpm.cjs");
+    expect(release).toContain('Assert-VendoredPnpm -Label "win-unpacked"');
+    expect(release).toContain('Assert-VendoredPnpm -Label "installed"');
+    expect(release).toContain("::notice::vendored pnpm 11.7.0 present in packaged tree.");
 
     // Then: the prerelease publish attaches the exact setup executable
     expect(release).toContain("gh release create");
