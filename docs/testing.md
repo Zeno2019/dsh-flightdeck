@@ -122,7 +122,7 @@ Pending, not yet executed or proven:
 On a real Windows machine, after installing this revision:
 
 - The installer carries the seed under `%LOCALAPPDATA%\Programs\DSH Flightdeck\resources\profile-web\payload` (manifest, `cordis.patch.yml`, and the five-package `node_modules` tree).
-- After first launch, `%APPDATA%\DSH Flightdeck\harness\profiles\web` exists with the `dsh.profile.bundles` list and `node_modules\dshmarket`; the marketplace and the find plugin are usable in the DSH UI.
+- After first launch, `%APPDATA%\DSH Flightdeck\harness\profiles\web` exists with the `dsh.profile.bundles` list, `pnpm-workspace.yaml` (containing `autoInstallPeers: false`), and `node_modules\dshmarket`; the marketplace and the find plugin are usable in the DSH UI.
 - After first launch, `%APPDATA%\DSH Flightdeck\tools\pnpm.cmd` and `tools\dsh.cmd` exist on machines without any Node tooling — they run the vendored `node.exe` against the packaged `pnpm.cjs` and `@deepseek-ai\dsh\lib\bin.js`, so the market's one-click pnpm setup short-circuits through its `pnpm --version` probe and plugin installs re-invoke the DSH CLI through `dsh.cmd` (dshmarket's `dshArgv` only recognizes `bin.js`-shaped argv[1], which the harness entry is not). Smoke: `cmd /c "%APPDATA%\DSH Flightdeck\tools\dsh.cmd" --version` prints the DSH version (install nothing).
 - Installing a plugin from the market UI succeeds on a machine with no node/npm/corepack/pnpm on PATH (this migrates the seeded npm-flat tree to pnpm's layout on first use — expected, and installs need network anyway).
 - A second launch never overwrites an existing or user-edited profile.

@@ -29,7 +29,7 @@ describe("package.json", () => {
 
     // Then: identity matches the initialization plan review decisions
     expect(pkg.name).toBe("dsh-flightdeck");
-    expect(pkg.version).toBe("0.1.0-rc.4");
+    expect(pkg.version).toBe("0.1.0-rc.5");
     expect(pkg.private).toBe(true);
     expect(pkg.type).toBe("module");
     expect(pkg.main).toBe("./out/main/index.js");
@@ -248,7 +248,10 @@ describe("package.json", () => {
     // Then: only the two approved plugins are pinned and bundled, and the
     // staged npm tree can never leak into git
     expect(prepare).toContain('dshmarket: "1.14.1"');
-    expect(prepare).toContain('"dsh-find-plugin": "0.3.6"');
+    expect(prepare).toContain('"dsh-find-plugin": "0.3.7"');
+    expect(prepare).toContain("pnpm-workspace.yaml");
+    expect(prepare).toContain("nodeLinker: hoisted");
+    expect(prepare).toContain("autoInstallPeers: false");
     expect(prepare).toContain('"@deepseek-ai/dsh-base"');
     expect(prepare).toContain('"@deepseek-ai/dsh-web-app"');
     expect(prepare).toContain("cordis.patch.yml");
@@ -280,7 +283,7 @@ describe("package-lock.json", () => {
     expect(lock.lockfileVersion).toBe(3);
     expect(lock.name).toBe(pkg.name);
     expect(lock.version).toBe(pkg.version);
-    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.4");
+    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.5");
   });
 
   it("locks the exact pinned runtime inputs", async () => {

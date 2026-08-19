@@ -22,14 +22,32 @@ const STAGING_DIR = join(REPOSITORY_ROOT, "build", "profile-web");
 // stays node_modules-free.
 const PAYLOAD_DIR = join(STAGING_DIR, "payload");
 
+// The pnpm settings DSH's own profile template writes on first use
+// (`@deepseek-ai/dsh-app-boot` PROFILE_PNPM_WORKSPACE). `autoInstallPeers:
+// false` is the load-bearing line: without it, pnpm's default peer
+// auto-install walks the seeded plugins' @deepseek-ai peer ranges straight
+// into restricted (private) 0.0.1-rc.x packages and every market install
+// dies with an unresolvable dependency — the 0.1.0-rc.4 real-machine
+// failure. The seeded plugins' peers are supplied at runtime by the
+// packaged DSH closure healed into $DSH_HOME/profiles/node_modules.
+const PROFILE_PNPM_WORKSPACE = `packages:
+  - .
+
+nodeLinker: hoisted
+autoInstallPeers: false
+`;
+
 // The profile manifest mirrors the user-facing web profile shape: the two
 // template bundles that DSH ships, plus the two approved plugins.
+// dsh-find-plugin is pinned to 0.3.7 (not 0.3.6): 0.3.6's peer range
+// `@deepseek-ai/dsh-tools@^0.0.1-rc.1` resolves only to restricted
+// registry line; 0.3.7 moved the peer to the public `^0.1.0-rc.6` line.
 const PROFILE_MANIFEST = {
   name: "dsh-profile-web",
   private: true,
   dependencies: {
     dshmarket: "1.14.1",
-    "dsh-find-plugin": "0.3.6",
+    "dsh-find-plugin": "0.3.7",
   },
   dsh: {
     profile: {
@@ -62,6 +80,7 @@ writeFileSync(
   "utf8",
 );
 writeFileSync(join(PAYLOAD_DIR, "cordis.patch.yml"), "[]\n", "utf8");
+writeFileSync(join(PAYLOAD_DIR, "pnpm-workspace.yaml"), PROFILE_PNPM_WORKSPACE, "utf8");
 
 // 3. Install the two pinned plugin production trees. Peer dependencies
 //    are deliberately NOT installed: the plugins' @deepseek-ai peers
@@ -102,4 +121,4 @@ for (const plugin of ["dshmarket", "dsh-find-plugin"]) {
   }
 }
 
-console.log("prepare-profile-web: staged dshmarket@1.14.1 and dsh-find-plugin@0.3.6");
+console.log("prepare-profile-web: staged dshmarket@1.14.1 and dsh-find-plugin@0.3.7");
