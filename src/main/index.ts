@@ -126,7 +126,7 @@ async function startMainShell(): Promise<void> {
   // to DSH's own empty-template initialization instead of blocking startup.
   if (app.isPackaged) {
     try {
-      const seeded = await seedWebProfile(dshHome, join(process.resourcesPath, "profile-web"));
+      const seeded = await seedWebProfile(dshHome, join(process.resourcesPath, "profile-web", "payload"));
       if (seeded) console.log("[desktop] seeded web profile from packaged resources");
     } catch (error) {
       reportMainFailure("web profile seed", error);

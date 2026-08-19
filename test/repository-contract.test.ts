@@ -29,7 +29,7 @@ describe("package.json", () => {
 
     // Then: identity matches the initialization plan review decisions
     expect(pkg.name).toBe("dsh-flightdeck");
-    expect(pkg.version).toBe("0.1.0-rc.1");
+    expect(pkg.version).toBe("0.1.0-rc.2");
     expect(pkg.private).toBe(true);
     expect(pkg.type).toBe("module");
     expect(pkg.main).toBe("./out/main/index.js");
@@ -217,6 +217,8 @@ describe("package.json", () => {
     expect(prepare).toContain("cordis.patch.yml");
     expect(prepare).toContain('["install", "--omit=dev", "--save-exact", "--no-audit", "--no-fund", "--legacy-peer-deps"]');
     expect(prepare).toContain('for (const entry of [".bin", ".package-lock.json"])');
+    expect(prepare).toContain('const PAYLOAD_DIR = join(STAGING_DIR, "payload")');
+    expect(prepare).toContain("one level below the copied root");
     expect(gitignore).toContain("/build/profile-web/");
 
     // Then: the packaged app seeds a fresh DSH_HOME exactly once, keyed on
@@ -224,7 +226,7 @@ describe("package.json", () => {
     expect(seedModule).toContain('join(dshHome, "profiles", "web")');
     expect(seedModule).toContain('join(targetDir, "package.json")');
     expect(index).toContain("seedWebProfile(");
-    expect(index).toContain('process.resourcesPath, "profile-web"');
+    expect(index).toContain('process.resourcesPath, "profile-web", "payload"');
     expect(index).toContain("app.isPackaged");
   });
 });
@@ -241,7 +243,7 @@ describe("package-lock.json", () => {
     expect(lock.lockfileVersion).toBe(3);
     expect(lock.name).toBe(pkg.name);
     expect(lock.version).toBe(pkg.version);
-    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.1");
+    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.2");
   });
 
   it("locks the exact pinned runtime inputs", async () => {
@@ -336,6 +338,12 @@ describe(".github/workflows/windows-package.yml", () => {
     expect(workflow).toContain("runtime closure is missing");
     expect(workflow).toContain('Assert-PackagedRuntimeClosure -Label "win-unpacked"');
     expect(workflow).toContain('Assert-PackagedRuntimeClosure -Label "installed"');
+    expect(workflow).toContain("Assert-VendoredProfileSeed");
+    expect(workflow).toContain("resources/profile-web/payload");
+    expect(workflow).toContain('Assert-VendoredProfileSeed -Label "win-unpacked"');
+    expect(workflow).toContain('Assert-VendoredProfileSeed -Label "installed"');
+    expect(workflow).toContain("vendored profile seed complete (dshmarket, dsh-find-plugin)");
+    expect(workflow).toContain("vendored profile seed is missing");
   });
 
   it("uploads one setup with strict absence handling and no distribution authority", async () => {
@@ -375,6 +383,10 @@ describe(".github/workflows/release.yml", () => {
     expect(release).toContain("Assert-PackagedRuntimeClosure");
     expect(release).toContain('Assert-PackagedRuntimeClosure -Label "win-unpacked"');
     expect(release).toContain('Assert-PackagedRuntimeClosure -Label "installed"');
+    expect(release).toContain("Assert-VendoredProfileSeed");
+    expect(release).toContain("resources/profile-web/payload");
+    expect(release).toContain('Assert-VendoredProfileSeed -Label "win-unpacked"');
+    expect(release).toContain('Assert-VendoredProfileSeed -Label "installed"');
 
     // Then: the prerelease publish attaches the exact setup executable
     expect(release).toContain("gh release create");

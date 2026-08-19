@@ -102,7 +102,7 @@ Verified in this local macOS session:
 - 99 of 103 tests passing (`npm test`). The four remaining tests bind a loopback port (`reserveLoopbackPort`, `waitUntilReady`, and one `HarnessRuntime` case in `test/runtime.test.ts`) and fail with `EPERM` inside this restricted sandbox, which denies loopback binds; they pass on CI and on a normal developer machine.
 - Typecheck clean (`npm run typecheck`).
 - electron-vite build successful (`npm run build`), with the expected warning that only the main process is configured.
-- `scripts/prepare-profile-web.mjs` stages `dshmarket@1.14.1` and `dsh-find-plugin@0.3.6` into `build/profile-web`: symlink-free npm production tree, zero `@deepseek-ai` duplication, idempotent reruns. Plugin peers (`@deepseek-ai/cordis@4.0.1`, `@deepseek-ai/dsh-settings@0.1.0-rc.7`, `@deepseek-ai/dsh-tools@0.1.0-rc.7`) resolve against the repository closure.
+- `scripts/prepare-profile-web.mjs` stages `dshmarket@1.14.1` and `dsh-find-plugin@0.3.6` into `build/profile-web/payload`: symlink-free npm production tree, zero `@deepseek-ai` duplication, idempotent reruns. The payload nests below the copy root because electron-builder drops a root-level `node_modules` of an extraResources source directory. Plugin peers (`@deepseek-ai/cordis@4.0.1`, `@deepseek-ai/dsh-settings@0.1.0-rc.7`, `@deepseek-ai/dsh-tools@0.1.0-rc.7`) resolve against the repository closure.
 - A clean `npm ci` reapplies the pinned `@deepseek-ai/dsh-app-boot` patch through the `postinstall` script.
 - Desktop splash captures at `1280x800` and `800x600`, reviewed through `agent-vision-mcp` and two independent read-only passes with no blockers.
 
@@ -119,6 +119,6 @@ Pending, not yet executed or proven:
 
 On a real Windows machine, after installing this revision:
 
-- The installer carries the seed under `%LOCALAPPDATA%\Programs\DSH Flightdeck\resources\profile-web` (manifest, `cordis.patch.yml`, and the five-package `node_modules` tree).
+- The installer carries the seed under `%LOCALAPPDATA%\Programs\DSH Flightdeck\resources\profile-web\payload` (manifest, `cordis.patch.yml`, and the five-package `node_modules` tree).
 - After first launch, `%APPDATA%\DSH Flightdeck\harness\profiles\web` exists with the `dsh.profile.bundles` list and `node_modules\dshmarket`; the marketplace and the find plugin are usable in the DSH UI.
 - A second launch never overwrites an existing or user-edited profile.

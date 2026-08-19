@@ -15,6 +15,12 @@ import { fileURLToPath } from "node:url";
 
 const REPOSITORY_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const STAGING_DIR = join(REPOSITORY_ROOT, "build", "profile-web");
+// node_modules must sit one level below the copied root: electron-builder
+// drops a root-level node_modules of an extraResources source directory
+// (dsh-cockpit's electron-builder.yml documents the same exclusion), so the
+// seed payload nests under payload/ while the extraResources source root
+// stays node_modules-free.
+const PAYLOAD_DIR = join(STAGING_DIR, "payload");
 
 // The profile manifest mirrors the user-facing web profile shape: the two
 // template bundles that DSH ships, plus the two approved plugins.
@@ -46,16 +52,16 @@ function fail(message) {
 if (existsSync(STAGING_DIR)) {
   rmSync(STAGING_DIR, { recursive: true, force: true });
 }
-mkdirSync(STAGING_DIR, { recursive: true });
+mkdirSync(PAYLOAD_DIR, { recursive: true });
 
 // 2. Write the profile manifest and the empty patch layer that DSH's
 //    template initialization would create.
 writeFileSync(
-  join(STAGING_DIR, "package.json"),
+  join(PAYLOAD_DIR, "package.json"),
   `${JSON.stringify(PROFILE_MANIFEST, null, 2)}\n`,
   "utf8",
 );
-writeFileSync(join(STAGING_DIR, "cordis.patch.yml"), "[]\n", "utf8");
+writeFileSync(join(PAYLOAD_DIR, "cordis.patch.yml"), "[]\n", "utf8");
 
 // 3. Install the two pinned plugin production trees. Peer dependencies
 //    are deliberately NOT installed: the plugins' @deepseek-ai peers
@@ -68,7 +74,7 @@ const install = spawnSync(
   npmExecutable,
   ["install", "--omit=dev", "--save-exact", "--no-audit", "--no-fund", "--legacy-peer-deps"],
   {
-    cwd: STAGING_DIR,
+    cwd: PAYLOAD_DIR,
     stdio: "inherit",
     shell: process.platform === "win32",
   },
@@ -82,15 +88,16 @@ if (install.status !== 0) {
 
 // 4. Strip npm-only metadata that the profile does not need: the `.bin`
 //    shims are symlinks on POSIX (junction material the installer must
-//    never carry) and `.package-lock.json` is installer metadata.
+//    never carry) and both lockfiles are installer metadata.
 for (const entry of [".bin", ".package-lock.json"]) {
-  rmSync(join(STAGING_DIR, "node_modules", entry), { recursive: true, force: true });
+  rmSync(join(PAYLOAD_DIR, "node_modules", entry), { recursive: true, force: true });
 }
+rmSync(join(PAYLOAD_DIR, "package-lock.json"), { force: true });
 
 // 5. Prove the two approved plugins landed before the installer consumes
 //    the staging directory.
 for (const plugin of ["dshmarket", "dsh-find-plugin"]) {
-  if (!existsSync(join(STAGING_DIR, "node_modules", plugin, "package.json"))) {
+  if (!existsSync(join(PAYLOAD_DIR, "node_modules", plugin, "package.json"))) {
     fail(`expected ${plugin} in the staged node_modules`);
   }
 }
