@@ -86,38 +86,19 @@ harness 会输出 `[desktop] endpoint http://127.0.0.1:<port>`,用于日志与�
 
 ## Vendored 依赖修复
 
-`@deepseek-ai/dsh@0.1.0-rc.7` 在 Windows 上用 NTFS directory junction 维护 `$DSH_HOME/profiles/node_modules`。其 `ensureSymlink` 用 `lstatSync(...).isSymbolicLink()` 判定链接所有权、用 `unlinkSync` 删除链接;但 junction 被报告为目录(不是 symlink)且无法 unlink——于是安装位置移动后重新指向 fallback 时,子进程以 `uncaughtException` 崩溃。
-
-`patches/@deepseek-ai+dsh-app-boot+0.1.0-rc.7.patch` 修复 `ensureSymlink`:通过 `readlinkSync` 识别 junction,带 NT 前缀容忍度做比较,并用 `rmdirSync` 删除(只删 reparse point,绝不删目标)。`postinstall` 脚本(`patch-package`)在每次干净安装时重放补丁;`test/profile-fallback.test.ts` 在 CI 平台上覆盖创建/幂等 heal/重指向/真目录拒绝四类用例。
+`@deepseek-ai` 包通过 `patches/` 下的 patch 修复 vendored 依赖,`postinstall` 在每次干净安装时重放补丁。
 
 ## 打包运行时闭包
 
-electron-builder 的生产依赖收集器只走 `dependencies` 边,因此仅能通过 DSH `peerDependencies` 到达的包(npm lock 里标记 `"peer": true` 的条目)会被静默丢出 `resources/app/node_modules`。未打包冒烟曾掩盖这一缺口:Node 从 `dist/win-unpacked` 沿父目录上溯会逃进仓库自身的 `node_modules`;安装在无关目录的副本做不到,DSH 在加载 `@deepseek-ai/dsh-app-boot` 时死于 `ERR_MODULE_NOT_FOUND`。
-
-`@deepseek-ai/dsh@0.1.0-rc.7` 的完整 peer-only 闭包(19 个包)被声明为 `package.json` 的直接依赖;`windows-package.yml` 在每次冒烟前校验仓库 `node_modules/@deepseek-ai` 的每个包在 `win-unpacked` 与安装后两棵树里都存在——未来 DSH 升级若改变 peer 闭包,打包步骤会响亮地失败,而不是变成一个费解的 fatal 标记。
+DSH peer-only 闭包(19 个包)在 `package.json` 中声明为直接依赖,确保被打进产物。
 
 ## Vendored web profile 种子
 
-DSH 对缺失的 `web` profile 会用空依赖模板初始化,而 `dsh plugin` 是唯一受支持的安装器(需要目标机上的 pnpm + 网络)。桌面应用改为随包分发一个预置好的 profile:
-
-- `scripts/prepare-profile-web.mjs` 在打包期暂存 `build/profile-web/payload`:profile manifest(模板 bundle `@deepseek-ai/dsh-base` 与 `@deepseek-ai/dsh-web-app`,加上四个经审核插件)、一份空的 `cordis.patch.yml`、DSH profile 自身的 `pnpm-workspace.yaml`(与 dsh-app-boot 的 `PROFILE_PNPM_WORKSPACE` 模板逐字节一致),以及 `dshmarket@1.14.1`、`dsh-find-plugin@0.3.7`、`dsh-anchored-subagent@0.3.0`、`dsh-better-sidebar@0.13.1` 的一棵无符号链接 npm 生产依赖树。`dsh-anchored-subagent` 仅发布在 GitHub:种子用 codeload tarball URL pin 到精确 commit,npm 在打包期解析,目标机永远不需要 git(`github:` 形式会让 pnpm 在 heal 路径上经 git 重新解析)。`dsh-better-sidebar` 的 `node-pty` 以 N-API prebuilds 覆盖 darwin/win32 的 x64+arm64,安装从不触发原生编译;打包工作流把 setup-node pin 到 `24.19.0`(vendored runtime 的版本),即使将来回退到源码编译也绝不会歪 ABI。`dsh-better-sidebar` 的 15 个 `@deepseek-ai` peer 全部从打包闭包解析(含 `@deepseek-ai/cordis@4.0.1`);其裸 `cordis` peer 仅是类型层引用(擦除的 `.d.ts` import)。插件 peer 依赖刻意不随包分发——运行时从打包的 DSH 闭包 heal 进 `$DSH_HOME/profiles/node_modules` 后解析。
-- `pnpm-workspace.yaml` 是 load-bearing 的,不是摆设:其 `autoInstallPeers: false` 阻止 pnpm 默认的 peer 自动安装——否则它会把种子插件的 `@deepseek-ai` peer 范围解析进受限(私有) registry 的包,使每次 market 安装都以依赖不可解析而失败,即 `0.1.0-rc.4` 真机故障(`@deepseek-ai/dsh-type-meta`)。`dsh-find-plugin` pin 在 `0.3.7`,因为 `0.3.6` 的 peer 范围 `@deepseek-ai/dsh-tools@^0.0.1-rc.1` 只能解析到受限的 `0.0.1-rc.x`;`0.3.7` 把 peer 挪到了公开的 `^0.1.0-rc.6` 线。
-- payload 在 extraResources 拷贝根下再嵌一层,是因为 electron-builder 会丢弃被拷目录根上的 `node_modules`(`0.1.0-rc.1` 的 CI 正是这样失败的:manifest 种下去了但插件树缺失,DSH 死于无法解析 `dshmarket` bundle)。`windows-package.yml` 与 `release.yml` 都在任何冒烟前断言打包后的 `resources/profile-web/payload` 树。
-- electron-builder 通过 `extraResources` 把暂存树以 `resources/profile-web` 分发;主进程从 `resources/profile-web/payload` 播种。
-- 仅首次启动(打包态)时,`src/main/profile-seed.ts` 把种子复制进 `<userData>/harness/profiles/web`,以目标 `package.json` 为键——已存在或被用户改过的 profile 绝不覆盖。
-- 播种失败降级为 DSH 的空模板初始化,不会阻塞启动。
-- 运行时不需要 pnpm,也不需要网络。插件版本冻结在 prepare 脚本里;改动需要重新构建。
-- 之后从 market UI 继续安装插件,由下文的 vendored pnpm 启动器兜住,目标机依旧不需要 Node 工具链。第一次此类安装会把种子的 npm 扁平 `node_modules` 迁移成 pnpm 布局并重新解析两个种子插件;安装本就需要网络,故此代价被接受。
+profile 种子经 `extraResources` 分发、仅首次启动播种、绝不覆盖用户已修改的 profile;运行时不需要 pnpm 与网络。
 
 ## Vendored 工具启动器(pnpm + dsh)
 
-DSH market 在两处探测子进程 PATH,0.1.0-rc.2 真机已在第一处失败过:内置的 runtime node 不带 npm/corepack,宿主机 PATH 上也没有 Node 工具链。因此仅在 win32 上,启动时向 `<userData>/tools` 写入两个启动器(`src/main/tool-launchers.ts`),该目录被 harness 前置到子进程 PATH:
-
-- pnpm —— market 通过探测 PATH 来置备 pnpm(`dshmarket@1.14.1` 的 `dsh-cli.js`:`corepack enable`,然后 `npm install -g pnpm`,每步以 `pnpm --version` 作为成功门——其 `spawnEnv` 保留继承的 PATH)。`pnpm@11.7.0` 是 `dependencies` 直接 pin(纯 JS 包无依赖,engines node >=22.13,由 vendored `node@24.19.0` 满足),electron-builder 的生产收集器像闭包其余部分一样把它装进 `resources/app/node_modules`。版本与用户实测 profile 的 `packageManager` 字段一致;`dataelement/dsh-desktop` 的 10.34.5 pin 是备选记录。启动器运行 `pnpm/bin/pnpm.cjs`。
-- dsh —— market 插件安装会重新调用 DSH CLI,但 `dshArgv()` 只认匹配 `/[\\/](?:bin\.(?:js|ts)|dsh)$/` 的 `process.argv[1]`(`dsh-cli.js:126-141`);harness 入口 `runtime-node-entry.mjs` 不匹配,重调用便回退到 PATH 上的裸 `dsh`——正是 0.1.0-rc.3 真机故障(`'dsh' is not recognized as an internal or external command`)。启动器在 vendored node 下运行 vendored DSH 入口(`@deepseek-ai/dsh/lib/bin.js`,由 `runtime-paths` 解析为 `dshBin`)。
-- 两个启动器都以 `@chcp 65001 >nul` 开头——否则工具诊断在中文 Windows 上会变成 GBK 乱码,也就是 market 日志里那条乱码版「不是内部或外部命令」——随后是 `runtime-paths` 解析出的 vendored `node.exe` 运行 vendored 入口。它们绝不使用 `process.execPath`(Electron 二进制)。两个文件每次启动都重写,升级安装不会留下过期的绝对路径。
-- harness 子进程的 PATH 被前置了 `<userData>/tools`(`src/main/runtime.ts` 的 `buildHarnessSpawnOptions` + `withPrependedPath`;Windows 的 `Path`/`PATH` 大小写冲突被合并为单一键)。注入沿父 → DSH → dshmarket → pnpm/dsh 传递,因为 dshmarket 的 `spawnEnv` 与 `dsh plugin` 转发器都继承子进程 PATH。
-- POSIX 平台不写启动器(产品只打包 Windows;开发态 macOS 机器自带工具链)。启动器写失败只记日志并继续——没有注入,绝不阻塞启动。
+打包态由 vendored node 经 `pnpm`/`dsh` 启动器承接插件安装,目标机无需 Node 工具链。
 
 ## 启动与关停
 
