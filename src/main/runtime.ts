@@ -3,7 +3,7 @@ import { createWriteStream, type WriteStream } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import http from "node:http";
 import https from "node:https";
-import { dirname } from "node:path";
+import path from "node:path";
 import { match } from "ts-pattern";
 import { LIFECYCLE, LOOPBACK_HOST, type RuntimeOutcome, type RuntimePhase, type RuntimeSnapshot } from "../shared/contracts.js";
 import { reserveLoopbackPort } from "./reserve-port.js";
@@ -19,10 +19,35 @@ export function buildNodeArguments(runtimeEntry: string, dshBin: string, harness
   return ["--expose-internals", runtimeEntry, dshBin, ...harnessArgs];
 }
 
-export function buildHarnessSpawnOptions(inputEnv: NodeJS.ProcessEnv, cwd: string): HarnessSpawnOptions {
+export function buildHarnessSpawnOptions(
+  inputEnv: NodeJS.ProcessEnv,
+  cwd: string,
+  prependPathDirs: readonly string[] = [],
+  pathDelimiter: string = path.delimiter,
+): HarnessSpawnOptions {
   const env: NodeJS.ProcessEnv = { ...inputEnv, NO_COLOR: "1", DSH_HOME: cwd };
   delete env["ELECTRON_RUN_AS_NODE"];
-  return { cwd, windowsHide: true, stdio: "pipe", env };
+  const options: HarnessSpawnOptions = { cwd, windowsHide: true, stdio: "pipe", env };
+  return prependPathDirs.length > 0 ? { ...options, env: withPrependedPath(env, prependPathDirs, pathDelimiter) } : options;
+}
+
+/**
+ * Prepends directories to the child PATH. Windows environment keys are
+ * case-insensitive, so an input carrying the OS-native `Path` key is merged
+ * into a single `PATH` key instead of producing two competing entries.
+ * An empty directory list returns a copy with the input untouched.
+ */
+export function withPrependedPath(
+  inputEnv: NodeJS.ProcessEnv,
+  prependPathDirs: readonly string[],
+  delimiter: string,
+): NodeJS.ProcessEnv {
+  if (prependPathDirs.length === 0) return { ...inputEnv };
+  const env: NodeJS.ProcessEnv = { ...inputEnv };
+  const existing = env["PATH"] ?? env["Path"] ?? "";
+  delete env["Path"];
+  env["PATH"] = [...prependPathDirs, existing].join(delimiter);
+  return env;
 }
 
 export function formatExitCode(rawExitCode: number): string { return `0x${(rawExitCode >>> 0).toString(16).toUpperCase().padStart(8, "0")}`; }
@@ -75,6 +100,7 @@ function abortReason(signal: AbortSignal): string { const reason: unknown = sign
 export interface HarnessRuntimeConfig {
   readonly paths: ResolvedRuntimePaths; readonly launchDirectory: string; readonly dshHome: string;
   readonly logFile: string; readonly platform: NodeJS.Platform; readonly env: NodeJS.ProcessEnv;
+  readonly prependPathDirs?: readonly string[];
   readonly onSnapshot?: (snapshot: RuntimeSnapshot) => void;
 }
 
@@ -92,7 +118,7 @@ export class HarnessRuntime {
     await Promise.all([
       mkdir(this.config.launchDirectory, { recursive: true }),
       mkdir(this.config.dshHome, { recursive: true }),
-      mkdir(dirname(this.config.logFile), { recursive: true }),
+      mkdir(path.dirname(this.config.logFile), { recursive: true }),
     ]);
     if (this.stopRequested) return this.exitOutcome();
     const port = await reserveLoopbackPort();
@@ -100,7 +126,7 @@ export class HarnessRuntime {
     const origin = `http://${LOOPBACK_HOST}:${port}`;
     this.origin = origin;
     this.logStream = createWriteStream(this.config.logFile, { flags: "a" });
-    const baseOptions = buildHarnessSpawnOptions(this.config.env, this.config.launchDirectory);
+    const baseOptions = buildHarnessSpawnOptions(this.config.env, this.config.launchDirectory, this.config.prependPathDirs ?? []);
     const child = spawn(
       this.config.paths.nodeExecutable,
       buildNodeArguments(this.config.paths.runtimeEntry, this.config.paths.dshBin, buildHarnessArguments(port)),

@@ -4,6 +4,7 @@ import { app, BrowserWindow, dialog, Menu } from "electron";
 import { match } from "ts-pattern";
 import type { RuntimeOutcome, RuntimeSnapshot } from "../shared/contracts.js";
 import { resolveRuntimePaths } from "./runtime-paths.js";
+import { resolvePnpmEntry, writePnpmLauncher } from "./pnpm-tools.js";
 import { HarnessRuntime } from "./runtime.js";
 import { seedWebProfile } from "./profile-seed.js";
 import { secureWindow } from "./security.js";
@@ -120,6 +121,30 @@ async function startMainShell(): Promise<void> {
   const userData = app.getPath("userData");
   const dshHome = join(userData, "harness");
 
+  // The DSH market provisions pnpm by probing the child PATH (corepack, then
+  // npm -g, with `pnpm --version` as the success gate). A freshly written
+  // pnpm.cmd pointing at the vendored node and pnpm satisfies that probe on
+  // machines without any Node tooling; a write failure only means no
+  // injection, never a blocked startup.
+  const prependPathDirs: string[] = [];
+  if (process.platform === "win32") {
+    try {
+      const toolsDir = join(userData, "tools");
+      const launcher = await writePnpmLauncher({
+        toolsDir,
+        nodeExecutable: paths.nodeExecutable,
+        pnpmEntry: resolvePnpmEntry(app.getAppPath(), process.platform),
+        platform: process.platform,
+      });
+      if (launcher !== null) {
+        prependPathDirs.push(toolsDir);
+        console.log("[desktop] pnpm launcher ready");
+      }
+    } catch (error) {
+      reportMainFailure("pnpm launcher", error);
+    }
+  }
+
   // The packaged app ships a prepared web profile so the two approved DSH
   // plugins work without pnpm or network on the target machine. Seeding is
   // first-launch-only (the target manifest gates it) and a failure degrades
@@ -140,6 +165,7 @@ async function startMainShell(): Promise<void> {
     logFile: join(userData, "logs", "harness.log"),
     platform: process.platform,
     env: process.env,
+    prependPathDirs,
     onSnapshot: handleRuntimeSnapshot,
   });
   runtime = harnessRuntime;

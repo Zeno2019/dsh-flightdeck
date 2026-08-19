@@ -29,7 +29,7 @@ describe("package.json", () => {
 
     // Then: identity matches the initialization plan review decisions
     expect(pkg.name).toBe("dsh-flightdeck");
-    expect(pkg.version).toBe("0.1.0-rc.2");
+    expect(pkg.version).toBe("0.1.0-rc.3");
     expect(pkg.private).toBe(true);
     expect(pkg.type).toBe("module");
     expect(pkg.main).toBe("./out/main/index.js");
@@ -51,10 +51,11 @@ describe("package.json", () => {
     // Given: the parsed package.json
     const pkg = parsePackageJson(await readRepositoryFile("package.json"));
 
-    // When: the three pinned runtime inputs are read
+    // When: the four pinned runtime inputs are read
     // Then: each resolves to its exact section 5.1 version
     expect(requiredString(pkg.dependencies, "@deepseek-ai/dsh")).toBe("0.1.0-rc.7");
     expect(requiredString(pkg.dependencies, "node")).toBe("24.19.0");
+    expect(requiredString(pkg.dependencies, "pnpm")).toBe("11.7.0");
     expect(requiredString(pkg.dependencies, "ts-pattern")).toBe("5.9.0");
   });
 
@@ -201,6 +202,36 @@ describe("package.json", () => {
     }
   });
 
+  it("ships a vendored pnpm and injects its win32 launcher directory into the harness PATH", async () => {
+    // Given: the launcher module, the spawn seam, and the startup wiring
+    const pnpmTools = await readRepositoryFile("src/main/pnpm-tools.ts");
+    const runtime = await readRepositoryFile("src/main/runtime.ts");
+    const index = await readRepositoryFile("src/main/index.ts");
+
+    // Then: the win32 launcher switches the console to UTF-8 (the 0.1.0-rc.2
+    // market log garbled setup-pnpm failures as GBK) and runs pnpm.cjs with
+    // the vendored node, never process.execPath (the Electron binary)
+    expect(pnpmTools).toContain('@chcp 65001 >nul');
+    expect(pnpmTools).toContain('join(input.toolsDir, "pnpm.cmd")');
+    expect(pnpmTools).toContain('"pnpm", "bin", "pnpm.cjs"');
+    expect(pnpmTools).toContain('input.platform !== "win32"');
+    expect(pnpmTools).toContain("never `process.execPath`");
+
+    // Then: the harness child PATH accepts prepended directories merged into
+    // a single case-insensitive-safe PATH key
+    expect(runtime).toContain("withPrependedPath");
+    expect(runtime).toContain("prependPathDirs");
+    expect(runtime).toContain("env[\"Path\"]");
+
+    // Then: startup materializes the launcher under userData/tools, injects
+    // the directory, and degrades instead of blocking when the write fails
+    expect(index).toContain("writePnpmLauncher(");
+    expect(index).toContain("resolvePnpmEntry(app.getAppPath(), process.platform)");
+    expect(index).toContain('join(userData, "tools")');
+    expect(index).toContain("prependPathDirs.push(toolsDir)");
+    expect(index).toContain('reportMainFailure("pnpm launcher", error)');
+  });
+
   it("vendors the two approved DSH plugins as a first-launch web profile seed", async () => {
     // Given: the packaging-time prepare script, ignore rules, and seed seam
     const prepare = await readRepositoryFile("scripts/prepare-profile-web.mjs");
@@ -243,17 +274,18 @@ describe("package-lock.json", () => {
     expect(lock.lockfileVersion).toBe(3);
     expect(lock.name).toBe(pkg.name);
     expect(lock.version).toBe(pkg.version);
-    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.2");
+    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.3");
   });
 
   it("locks the exact pinned runtime inputs", async () => {
     // Given: the parsed lockfile
     const lock = parsePackageLock(await readRepositoryFile("package-lock.json"));
 
-    // When: the two runtime entries are read
+    // When: the three runtime entries are read
     // Then: they resolve to the exact section 5.1 versions
     expect(lockEntryVersion(lock, "node_modules/@deepseek-ai/dsh")).toBe("0.1.0-rc.7");
     expect(lockEntryVersion(lock, "node_modules/node")).toBe("24.19.0");
+    expect(lockEntryVersion(lock, "node_modules/pnpm")).toBe("11.7.0");
   });
 });
 

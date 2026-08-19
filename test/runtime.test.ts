@@ -17,6 +17,7 @@ import {
   isReadyStatus,
   ReadinessOriginError,
   waitUntilReady,
+  withPrependedPath,
 } from "../src/main/runtime.js";
 
 describe("LIFECYCLE", () => {
@@ -145,6 +146,71 @@ describe("buildHarnessSpawnOptions", () => {
     expect(inputEnv["ELECTRON_RUN_AS_NODE"]).toBe("1");
     expect(inputEnv["NO_COLOR"]).toBeUndefined();
     expect(inputEnv["DSH_HOME"]).toBeUndefined();
+  });
+  it("prepends launcher directories to a win32 Path without mutating the input env", () => {
+    // Given: a win32-style environment and the tools directory the pnpm launcher lives in
+    const inputEnv: NodeJS.ProcessEnv = {
+      Path: "C:\\Windows\\System32;C:\\Program Files",
+      ELECTRON_RUN_AS_NODE: "1",
+    };
+    const cwd = "C:\\Program Files\\DSH Flightdeck\\resources\\app";
+    const toolsDir = "C:\\Users\\tester\\AppData\\Roaming\\DSH Flightdeck\\tools";
+
+    // When: the harness spawn options are built with the tools directory
+    // prepended under the win32 delimiter (injected for cross-platform tests;
+    // production defaults to path.delimiter)
+    const options = buildHarnessSpawnOptions(inputEnv, cwd, [toolsDir], ";");
+
+    // Then: the child PATH is the launcher directory first, the original
+    // Path second, under a single PATH key (Windows env keys are
+    // case-insensitive; two competing keys would be ambiguous)
+    expect(options.env["Path"]).toBeUndefined();
+    expect(options.env["PATH"]).toBe(`${toolsDir};C:\\Windows\\System32;C:\\Program Files`);
+    expect(options.env["NO_COLOR"]).toBe("1");
+    expect(options.env["DSH_HOME"]).toBe(cwd);
+    expect(options.env["ELECTRON_RUN_AS_NODE"]).toBeUndefined();
+
+    // Then: the input env is never mutated
+    expect(inputEnv["Path"]).toBe("C:\\Windows\\System32;C:\\Program Files");
+    expect(inputEnv["PATH"]).toBeUndefined();
+  });
+});
+
+describe("withPrependedPath", () => {
+  it("merges a win32 Path key into a single PATH key", () => {
+    // Given: a win32-style environment keyed with the OS-native Path casing
+    const inputEnv: NodeJS.ProcessEnv = { Path: "C:\\Windows" };
+
+    // When: a directory is prepended with the win32 delimiter
+    const env = withPrependedPath(inputEnv, ["C:\\tools"], ";");
+
+    // Then: exactly one PATH entry exists, launcher first, and the input is untouched
+    expect(env["Path"]).toBeUndefined();
+    expect(env["PATH"]).toBe("C:\\tools;C:\\Windows");
+    expect(inputEnv["Path"]).toBe("C:\\Windows");
+  });
+
+  it("keeps an existing PATH key and appends the original value", () => {
+    // Given: a POSIX-style environment with an existing PATH key
+    const inputEnv: NodeJS.ProcessEnv = { PATH: "/usr/bin:/bin" };
+
+    // When: directories are prepended with the POSIX delimiter
+    const env = withPrependedPath(inputEnv, ["/opt/tools", "/usr/local/bin"], ":");
+
+    // Then: the new directories lead and the original PATH trails
+    expect(env["PATH"]).toBe("/opt/tools:/usr/local/bin:/usr/bin:/bin");
+  });
+
+  it("returns an untouched copy for an empty directory list", () => {
+    // Given: a win32-style environment and no directories to prepend
+    const inputEnv: NodeJS.ProcessEnv = { Path: "C:\\Windows" };
+
+    // When: the path is rebuilt with an empty list
+    const env = withPrependedPath(inputEnv, [], ";");
+
+    // Then: the copy keeps the native key casing and value
+    expect(env).toEqual(inputEnv);
+    expect(env).not.toBe(inputEnv);
   });
 });
 

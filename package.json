@@ -1,7 +1,7 @@
 {
   "name": "dsh-flightdeck",
   "productName": "DSH Flightdeck",
-  "version": "0.1.0-rc.2",
+  "version": "0.1.0-rc.3",
   "private": true,
   "type": "module",
   "main": "./out/main/index.js",
@@ -41,6 +41,7 @@
     "@deepseek-ai/dsh-timeout": "0.1.0-rc.7",
     "@deepseek-ai/dsh-workflow": "0.1.0-rc.7",
     "node": "24.19.0",
+    "pnpm": "11.7.0",
     "ts-pattern": "5.9.0"
   },
   "devDependencies": {

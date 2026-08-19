@@ -76,6 +76,7 @@ All runtime state lives under the Electron user data directory (`app.getPath("us
 | `<userData>/launch` | Child process working directory |
 | `<userData>/harness` | `DSH_HOME` for the DSH child |
 | `<userData>/logs/harness.log` | Append-mode log for child stdout, stderr, and harness lines |
+| `<userData>/tools` | Windows-only `pnpm.cmd` launcher, rewritten on every startup |
 
 Before the app is ready, a non-empty `DSH_FLIGHTDECK_USER_DATA` environment variable overrides that directory (`app.setPath("userData", ...)`). The packaged smoke sets one per phase, so the unpacked and installed executions can never share `DSH_HOME`, logs, or junctions. It also serves portable installations.
 
@@ -102,7 +103,17 @@ DSH initializes a missing `web` profile from a template with empty dependencies,
 - electron-builder ships the staged tree as `resources/profile-web` through `extraResources`; the main process seeds from `resources/profile-web/payload`.
 - On first launch only (packaged mode), `src/main/profile-seed.ts` copies the seed into `<userData>/harness/profiles/web`, keyed on the target `package.json` so an existing or user-edited profile is never overwritten.
 - A seed failure degrades to DSH's empty-template initialization instead of blocking startup.
-- Runtime needs no pnpm and no network. Plugin versions are frozen in the prepare script; changing them requires a rebuild. Adding or removing plugins later needs pnpm on the machine (the upstream `dsh plugin` path).
+- Runtime needs no pnpm and no network. Plugin versions are frozen in the prepare script; changing them requires a rebuild.
+- Installing further plugins from the market UI is covered by the vendored pnpm launcher below, so the target machine still needs no Node tooling. The first such install migrates the seed's npm-flat `node_modules` to pnpm's layout and re-resolves the two seeded plugins; installs require network anyway, so this is accepted.
+
+## Vendored pnpm launcher
+
+The DSH market provisions pnpm by probing the child PATH (`dshmarket@1.14.1` `dsh-cli.js`: `corepack enable`, then `npm install -g pnpm`, with `pnpm --version` as the success gate after each step — and its `spawnEnv` keeps the inherited PATH). On the 0.1.0-rc.2 real machine the probe failed: the bundled runtime node ships no npm/corepack, and the host had no Node tooling on PATH.
+
+- `pnpm@11.7.0` is a direct `dependencies` pin (dependency-free JS package, engines node >=22.13, satisfied by the vendored `node@24.19.0`), so electron-builder's production collector ships it inside `resources/app/node_modules` like the rest of the closure. The version matches the `packageManager` field of the user-tested profile; `dataelement/dsh-desktop`'s 10.34.5 pin is the recorded alternative.
+- On win32 only, startup writes `<userData>/tools/pnpm.cmd` (`src/main/pnpm-tools.ts`): `@chcp 65001 >nul` first — pnpm diagnostics would otherwise arrive as GBK garbage on Chinese Windows, the same garbled "not an internal or external command" text in the 0.1.0-rc.2 market log — then the vendored `node.exe` resolved by `runtime-paths` running `pnpm/bin/pnpm.cjs`. It never uses `process.execPath` (the Electron binary). The file is rewritten on every startup, so an upgraded install cannot leave a stale absolute path.
+- The harness child's PATH gets `<userData>/tools` prepended (`buildHarnessSpawnOptions` + `withPrependedPath` in `src/main/runtime.ts`; the Windows `Path`/`PATH` casing collision is merged into a single key). The injection flows parent → DSH → dshmarket → pnpm, because dshmarket's `spawnEnv` and the `dsh plugin` forwarder both inherit the child PATH.
+- POSIX platforms get no launcher (the product packages Windows only; dev macOS machines carry their own pnpm). A launcher write failure only logs and continues — no injection, never a blocked startup.
 
 ## Startup and shutdown
 
