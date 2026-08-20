@@ -12,6 +12,7 @@ import type { AppSecurityPolicy } from "./security-policy.js";
 
 const APP_ID = "dev.zeno.dsh-flightdeck" as const;
 const APP_TITLE = "DSH Flightdeck" as const;
+const BUNDLED_DSH_VERSION = "0.1.0-rc.7" as const;
 
 // CI and portable use: point the whole per-user state tree (userData ->
 // launch/, harness/, logs/) at an explicit directory before any Electron
@@ -83,6 +84,7 @@ function handleRuntimeOutcome(window: BrowserWindow, outcome: RuntimeOutcome): P
 
 async function startMainShell(): Promise<void> {
   Menu.setApplicationMenu(null);
+  console.log(`[desktop] ${APP_TITLE} ${app.getVersion()} | bundled DSH ${BUNDLED_DSH_VERSION}`);
   const paths = resolveRuntimePaths({
     mode: app.isPackaged ? "packaged" : "dev",
     platform: process.platform,

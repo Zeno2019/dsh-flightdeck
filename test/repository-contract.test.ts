@@ -22,14 +22,15 @@ async function readRepositoryFile(relativePath: string): Promise<string> {
 }
 
 describe("package.json", () => {
-  it("declares the exact v0.0.1 package identity", async () => {
+  it("declares the exact RC.8 package identity and Apache-2.0 license", async () => {
     // Given: the repository package.json
     // When: parsed into a typed shape
     const pkg = parsePackageJson(await readRepositoryFile("package.json"));
 
     // Then: identity matches the initialization plan review decisions
     expect(pkg.name).toBe("dsh-flightdeck");
-    expect(pkg.version).toBe("0.1.0-rc.7");
+    expect(pkg.version).toBe("0.1.0-rc.8");
+    expect(pkg.license).toBe("Apache-2.0");
     expect(pkg.private).toBe(true);
     expect(pkg.type).toBe("module");
     expect(pkg.main).toBe("./out/main/index.js");
@@ -185,6 +186,8 @@ describe("package.json", () => {
       "out/**/*",
       { from: "build/app-prod/node_modules", to: "node_modules" },
       "package.json",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
       "!**/*.map",
       "!**/.gitmodules",
     ]);
@@ -209,7 +212,7 @@ describe("package.json", () => {
       allowToChangeInstallationDirectory: true,
       createDesktopShortcut: true,
       createStartMenuShortcut: true,
-      artifactName: "dsh-flightdeck-windows-${arch}-setup.${ext}",
+      artifactName: "dsh-flightdeck-${version}-dsh-0.1.0-rc.7-windows-${arch}-setup.${ext}",
     });
     for (const forbiddenKey of ["publish", "linux", "electronUpdaterCompatibility"] as const) {
       expect(build[forbiddenKey]).toBeUndefined();
@@ -233,7 +236,7 @@ describe("package.json", () => {
     expect(targets).toHaveLength(1);
     expect(readString(target, "target")).toBe("dmg");
     expect(readStringArray(target, "arch")).toEqual(["arm64"]);
-    expect(readString(mac, "artifactName")).toBe("dsh-flightdeck-mac-${arch}.${ext}");
+    expect(readString(mac, "artifactName")).toBe("dsh-flightdeck-${version}-dsh-0.1.0-rc.7-mac-${arch}.${ext}");
     expect(readString(mac, "category")).toBe("public.app-category.developer-tools");
   });
 
@@ -309,6 +312,40 @@ describe("package.json", () => {
   });
 });
 
+describe("license and user-visible version disclosure", () => {
+  it("ships Apache-2.0 terms, third-party notices, and the tested version matrix", async () => {
+    const [license, notices, readme, readmeZh, index] = await Promise.all([
+      readRepositoryFile("LICENSE"),
+      readRepositoryFile("THIRD_PARTY_NOTICES.md"),
+      readRepositoryFile("README.md"),
+      readRepositoryFile("README.zh-CN.md"),
+      readRepositoryFile("src/main/index.ts"),
+    ]);
+
+    expect(license).toContain("Apache License");
+    expect(license).toContain("Version 2.0, January 2004");
+    for (const component of [
+      "@deepseek-ai/dsh",
+      "dshmarket",
+      "dsh-find-plugin",
+      "dsh-anchored-subagent",
+      "dsh-better-sidebar",
+    ] as const) {
+      expect(notices).toContain(component);
+    }
+    for (const userDocument of [readme, readmeZh]) {
+      expect(userDocument).toContain("0.1.0-rc.8");
+      expect(userDocument).toContain("0.1.0-rc.7");
+      expect(userDocument).toContain("31fdd22a4265aef3107d9fca05854bea78a9af10");
+      expect(userDocument).toContain("Apache License 2.0");
+    }
+    expect(readme).toContain("Release testing is limited");
+    expect(readmeZh).toContain("发布测试仅覆盖");
+    expect(index).toContain('const BUNDLED_DSH_VERSION = "0.1.0-rc.7"');
+    expect(index).toContain("app.getVersion()");
+  });
+});
+
 describe("package-lock.json", () => {
   it("is a lockfileVersion 3 lockfile whose root matches package.json", async () => {
     // Given: both manifests at the repository root
@@ -321,7 +358,7 @@ describe("package-lock.json", () => {
     expect(lock.lockfileVersion).toBe(3);
     expect(lock.name).toBe(pkg.name);
     expect(lock.version).toBe(pkg.version);
-    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.7");
+    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.8");
   });
 
   it("locks the exact pinned runtime inputs", async () => {
@@ -440,7 +477,7 @@ describe(".github/workflows/windows-package.yml", () => {
     // When: upload and authority tokens are inspected
     // Then: the setup is mandatory, diagnostics are failure-only, and distribution remains impossible
     expect(workflow).toContain("actions/upload-artifact@v5");
-    expect(workflow).toContain("dist/dsh-flightdeck-windows-x64-setup.exe");
+    expect(workflow).toContain("dist/dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-setup.exe");
     expect(workflow).toContain("if-no-files-found: error");
     expect(workflow).toContain("if: failure()");
     expect(workflow).toContain("if-no-files-found: warn");
@@ -462,6 +499,9 @@ describe(".github/workflows/release.yml", () => {
     // permissions on the same smoke-gated pipeline as the manual workflow
     expect(release).toMatch(/^on:\r?\n  push:\r?\n    tags: \['v\*'\]/m);
     expect(release).toContain("contents: write");
+    expect(release).toContain("Verify release tag matches package version");
+    expect(release).toContain('$expectedTag = "v$packageVersion"');
+    expect(release).toContain('if ("${{ github.ref_name }}" -ne $expectedTag)');
     expect(release).toContain("runs-on: windows-latest");
     expect(release).toContain("timeout-minutes: 45");
     for (const command of ["npm ci", "npm test", "npm run typecheck", "npm run package:win"] as const) {
@@ -482,7 +522,8 @@ describe(".github/workflows/release.yml", () => {
 
     // Then: the prerelease publish attaches the exact setup executable
     expect(release).toContain("gh release create");
-    expect(release).toContain("dsh-flightdeck-windows-x64-setup.exe");
+    expect(release).toContain("dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-setup.exe");
+    expect(release).toContain("bundled DSH 0.1.0-rc.7");
     expect(release).toContain("--prerelease");
     expect(release).toContain("--generate-notes");
     expect(release).toContain("GH_TOKEN: ${{ github.token }}");

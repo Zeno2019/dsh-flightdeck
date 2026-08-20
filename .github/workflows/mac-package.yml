@@ -216,8 +216,8 @@ jobs:
       - name: Upload unsigned macOS dmg
         uses: actions/upload-artifact@v5
         with:
-          name: dsh-flightdeck-mac-arm64-dmg
-          path: dist/dsh-flightdeck-mac-arm64.dmg
+          name: dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-mac-arm64-dmg
+          path: dist/dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-mac-arm64.dmg
           if-no-files-found: error
       - name: Upload failure diagnostics
         if: failure()

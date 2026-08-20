@@ -238,8 +238,8 @@ jobs:
       - name: Upload unsigned NSIS setup
         uses: actions/upload-artifact@v5
         with:
-          name: dsh-flightdeck-windows-x64-nsis
-          path: dist/dsh-flightdeck-windows-x64-setup.exe
+          name: dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-nsis
+          path: dist/dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-setup.exe
           if-no-files-found: error
       - name: Upload failure diagnostics
         if: failure()

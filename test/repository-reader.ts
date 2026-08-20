@@ -4,6 +4,7 @@ export type PackageJson = {
   readonly name: string;
   readonly productName: string | undefined;
   readonly version: string;
+  readonly license: string;
   readonly private: boolean;
   readonly type: string;
   readonly main: string;
@@ -82,6 +83,7 @@ export function parsePackageJson(raw: string): PackageJson {
     name: readString(parsed, "name"),
     productName: readOptionalString(parsed, "productName"),
     version: readString(parsed, "version"),
+    license: readString(parsed, "license"),
     private: readBoolean(parsed, "private"),
     type: readString(parsed, "type"),
     main: readString(parsed, "main"),

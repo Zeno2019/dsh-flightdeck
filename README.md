@@ -4,7 +4,8 @@
 
 <p align="center">
   <a href="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml"><img src="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/version-0.1.0--rc.7-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/Flightdeck-0.1.0--rc.8-blue" alt="Flightdeck 0.1.0-rc.8" />
+  <img src="https://img.shields.io/badge/Bundled_DSH-0.1.0--rc.7-5b5bd6" alt="Bundled DSH 0.1.0-rc.7" />
   <img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-lightgrey" alt="Platforms" />
 </p>
 
@@ -19,7 +20,22 @@ A desktop launcher for the DeepSeek Harness (DSH) Web UI, made for people who do
 - `dsh-anchored-subagent` 0.3.0 — each session opens its first request under a Minimal two-tool set, then unlocks the full tool catalog
 - `dsh-better-sidebar` 0.13.1 — a VSCode-style right sidebar (file tree, editor, terminal, git panels) in the web UI
 
-Your profile lives under the app's own user-data directory and is never overwritten by app updates; plugin versions ship frozen with each build.
+Your profile lives under the app's own user-data directory and is never overwritten by app updates. A fresh installation uses the plugin versions bundled with that build; an existing profile can retain older or user-managed plugin versions after an update.
+
+## Version & compatibility
+
+| Component | Bundled version |
+|---|---:|
+| DSH Flightdeck | `0.1.0-rc.8` |
+| DSH core | `0.1.0-rc.7` |
+| `dshmarket` | `1.14.1` |
+| `dsh-find-plugin` | `0.3.7` |
+| `dsh-anchored-subagent` | `0.3.0` (`31fdd22a4265aef3107d9fca05854bea78a9af10`) |
+| `dsh-better-sidebar` | `0.13.1` |
+
+**Compatibility notice:** Release testing is limited to installation/unpacking, application startup, DSH HTTP readiness, and packaged-file checks on Windows x64 and macOS arm64. It does not represent complete validation of every plugin feature, system environment, network condition, or user-managed plugin.
+
+Before installing, upgrading, or replacing another plugin, verify that it declares support for DSH `0.1.0-rc.7` and back up the profile. Existing profiles are preserved across app updates, so their effective plugin versions can differ from the fresh-install matrix above.
 
 ## Download & install
 
@@ -28,7 +44,7 @@ Grab the latest prerelease from [Releases](https://github.com/Zeno2019/dsh-fligh
 - **Windows x64** — run the setup exe. It is unsigned, so SmartScreen may warn: choose *More info → Run anyway*.
 - **macOS arm64 (Apple Silicon)** — open the dmg and drag the app into `/Applications`. It is unsigned, so Gatekeeper blocks the first launch: right-click the app in Finder and choose *Open*, or run once in a terminal: `xattr -d com.apple.quarantine /Applications/DSH\ Flightdeck.app`. Intel Macs are not supported yet.
 
-First launch shows a brief splash page, then the DSH Web UI. That's it.
+First launch shows a brief splash page, then the DSH Web UI.
 
 ## Positioning
 
@@ -40,7 +56,11 @@ First launch shows a brief splash page, then the DSH Web UI. That's it.
 
 - macOS first launch blocked, or an app "damaged" warning → the `xattr` command above fixes it.
 - Installing a plugin by its `github:` address needs a local git binary (marketplace installs don't).
-- When reporting issues, attach `logs/harness.log` from the app's user-data directory — it records everything the runtime prints.
+- When reporting issues, include the Flightdeck version, bundled DSH version, OS/architecture, actual plugin versions, whether the profile is fresh, and `logs/harness.log` from the app's user-data directory.
+
+## License
+
+Original DSH Flightdeck code is licensed under the [Apache License 2.0](LICENSE). DSH, bundled plugins, and other third-party components remain subject to their respective licenses; the Apache-2.0 license does not replace third-party licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Documentation
 
