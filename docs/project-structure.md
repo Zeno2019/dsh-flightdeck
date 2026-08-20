@@ -20,11 +20,15 @@ dsh-flightdeck/
     architecture.zh-CN.md
     engineering-initialization-v0.0.1.md
     project-structure.md
+    releases/
+      v0.1.0-rc.9.md
     testing.md
   patches/
     @deepseek-ai+dsh-app-boot+0.1.0-rc.7.patch
   scripts/
     prepare-profile-web.mjs
+    release-metadata.mjs
+    run-electron-builder.mjs
     verify-target.mjs
   src/
     main/
@@ -58,8 +62,10 @@ dsh-flightdeck/
 
 运行时输入在 `package.json` 与 `package-lock.json` 中精确锁定:
 
+- Flightdeck 0.1.0-rc.9
 - `@deepseek-ai/dsh` 0.1.0-rc.7
 - `node` 24.19.0(内置的平台 Node 二进制)
+- `pnpm` 11.8.0(内置工具链,替代已知受影响的 11.7.0)
 - `ts-pattern` 5.9.0
 
 开发工具链: electron 43.4.0、electron-builder 26.15.3、electron-vite 5.0.0、patch-package 8.0.1、typescript 5.9.3、vitest 4.1.10、@types/node 24.10.1。
@@ -90,16 +96,16 @@ dsh-flightdeck/
 
 ## 打包
 
-打包按平台门控:Windows 命令仅限 x64,macOS 命令仅限 Apple Silicon arm64,各自构建前先校验目标。打包脚本会先跑 `scripts/prepare-profile-web.mjs` 暂存插件种子,再 electron-builder。产物名同时包含 Flightdeck 与内置 DSH 的完整版本,例如 `dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-mac-${arch}.dmg` 与 `dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-${arch}-setup.exe`。macOS dmg 首启需 Gatekeeper 放行(用户向说明见 README)。macOS 目标机上 dshmarket 会探测 PATH 中的 `/opt/homebrew/bin`:装了 Homebrew 的机器天然满足该探测,但应用本身不依赖 Homebrew。
+打包按平台门控:Windows 命令仅限 x64,macOS 命令仅限 Apple Silicon arm64,各自构建前先由 `scripts/verify-target.mjs` 校验目标。打包脚本会先跑 `scripts/prepare-profile-web.mjs` 暂存插件种子,再由 `scripts/run-electron-builder.mjs` 注入内置 DSH 版本并调用 electron-builder。RC.9 产物名为 `dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-windows-x64-setup.exe` 与 `dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-mac-arm64.dmg`。两个安装包均未签名;Windows 可能触发 SmartScreen,macOS 首启可能需按 README 对单个应用执行 Gatekeeper 放行。macOS 目标机上 dshmarket 会探测 PATH 中的 `/opt/homebrew/bin`:装了 Homebrew 的机器天然满足该探测,但应用本身不依赖 Homebrew。
 
 ## CI 工作流
 
 - **ci.yml**:master push 与全部 PR 触发,在 `windows-latest` 上跑 `npm ci` → `npm test` → `npm run typecheck` → `npm run build`。
 - **windows-package.yml**:`workflow_dispatch` 手动触发。构建安装器后,对未打包应用与静默安装的应用分别冒烟:每阶段独立 user-data 目录(`DSH_FLIGHTDECK_USER_DATA`),从 harness 日志发现 DSH loopback endpoint,轮询 HTTP 2xx,优雅关闭,并确认无 DSH Node 进程残留。
 - **mac-package.yml**:macOS 侧对应工作流,在 `macos-latest` 上构建未签名 dmg,对未打包 `.app` 与从挂载 dmg 安装的副本分别冒烟,上传 dmg 为 artifact。
-- **release.yml**:推送 `v*` tag 触发。重复同样的冒烟门控流水线,把 Windows 安装器与 macOS dmg 发布为 GitHub 预发布资产;其中 `release-mac` job 在 Windows 发布后重复 macOS 流水线并附加 dmg。
+- **release.yml**:推送匹配 package version 的 `v*` tag 触发。`release-metadata.mjs` 先校验版本与 `docs/releases/${expectedTag}.md` notes 文件,再进入双平台门禁。Windows 构建、安装/启动 smoke 后创建或更新 Draft Release,使用 `--notes-file` 并上传 `dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-windows-x64-setup.exe`;`release-mac` 随后构建并 smoke macOS arm64,上传 `dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-mac-arm64.dmg`,核对 Draft 内双资产后才 publish。含 `-rc` 的版本保持 prerelease 且 `latest=false`,因此不会提前暗示 stable。
 
-冒烟执行记录:2026-08-19(master@71d55e1)两处 runtime closure 通知均报告 195 个 `@deepseek-ai` 包,两次冒烟均达 HTTP 2xx;安装器随后在真实 Windows 机器上完成向导安装、启动、单实例二次启动、干净卸载与内置 ripgrep 1.18.0 验证。
+冒烟执行记录:2026-08-19(master@71d55e1)两处 runtime closure 通知均报告 195 个 `@deepseek-ai` 包,两次冒烟均达 HTTP 2xx;安装器随后在真实 Windows 机器上完成向导安装、启动、单实例二次启动、干净卸载与内置 ripgrep 1.18.0 验证。RC.9 的发布后 RC.8→RC.9 真实升级流程仍需从 GitHub 双资产手工验收,不能用上述既有 RC.8 验收替代。
 
 ## 测试
 

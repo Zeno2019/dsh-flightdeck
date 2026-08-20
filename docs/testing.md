@@ -4,7 +4,7 @@ This document describes the test and verification responsibilities of DSH Flight
 
 ## Unit tests
 
-The suite runs with Vitest and covers pure logic without launching Electron. 103 tests in the suite.
+The suite runs with Vitest and covers pure logic without launching Electron: **129 tests across 8 files**.
 
 `test/runtime.test.ts` covers the runtime boundary:
 
@@ -52,6 +52,8 @@ On `windows-latest` CI these tests create and re-point real NTFS junctions, so t
 
 `test/profile-seed.test.ts` covers the vendored web profile seed: a fresh DSH_HOME receives the complete staged profile, an existing profile is never overwritten, and a missing staged source rejects so the caller can degrade to DSH's template initialization.
 
+`test/tool-launchers.test.ts` covers the vendored `pnpm` and `dsh` launcher contracts: exact entry-point resolution, executable launcher content, and the non-Windows no-op boundary.
+
 ## Commands
 
 | Command | Purpose |
@@ -60,13 +62,18 @@ On `windows-latest` CI these tests create and re-point real NTFS junctions, so t
 | `npm run typecheck` | Run `tsc --noEmit` |
 | `npm run build` | Compile the main-process output with electron-vite |
 
-## Local macOS limitations
+## Target-gated packaging and local limitations
 
-The packaging commands are Windows-x64-only. `scripts/verify-target.mjs` fails fast on any other platform or architecture, so `package:dir` and `package:win` cannot run on this macOS machine. The Windows smoke procedure cannot run locally either.
+Packaging is target-gated by `scripts/verify-target.mjs`:
+
+- Windows commands (`package:dir`, `package:win`) require Windows x64.
+- macOS commands (`package:mac:dir`, `package:mac`) require macOS arm64 (Apple Silicon).
+
+On this macOS development machine the Windows commands fail fast and the Windows smoke procedure cannot run locally. A macOS package run is only meaningful on the required arm64 target; neither local platform substitutes for the other platform's release gate.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on pushes to `master` and on pull requests. It uses `windows-latest` with read-only repository permissions and runs `npm ci`, `npm test`, `npm run typecheck`, and `npm run build`. It does not package, publish, sign, or upload release assets.
+`.github/workflows/ci.yml` runs on pushes to `master` and on pull requests. It uses `windows-latest` with read-only repository permissions and runs `npm ci`, `npm test`, `npm run typecheck`, and `npm run build`. On a normal Windows runner the test gate is expected to be **129/129**; it does not package, publish, sign, or upload release assets. The macOS package and release jobs run the same 129-test gate on a normal macOS runner before their target-gated packaging smoke.
 
 ## Manual Windows packaging smoke
 
@@ -93,17 +100,21 @@ Smoke responsibilities, per executable form:
 - Verify no new `node.exe` PIDs remain beyond the baseline; kill and fail if any do.
 - Copy the harness log to the diagnostics directory.
 
-The workflow requires exactly one setup executable, uploads it with `if-no-files-found: error`, and uploads failure diagnostics with `if-no-files-found: warn`. It creates no GitHub Release.
+The workflow requires exactly one setup executable, uploads it with `if-no-files-found: error`, and uploads failure diagnostics with `if-no-files-found: warn`. For RC.9 the expected installer is `dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-windows-x64-setup.exe`. It creates no GitHub Release.
+
+## RC.9 release contracts
+
+`scripts/release-metadata.mjs` derives the Flightdeck version, bundled DSH version, exact Windows and macOS asset names, prerelease state, and `release_notes_path=docs/releases/${expectedTag}.md` from the package metadata. The release workflow verifies that notes file before building. The Windows job creates or updates a Draft with `--notes-file` and uploads the NSIS asset; it does not use generated notes. The macOS job builds the target-gated arm64 DMG, uploads it to the same Draft, verifies both exact assets, and only then publishes. Release packages remain unsigned; the final release notes carry the SmartScreen/Gatekeeper and limited-validation disclosures.
 
 ## Verified locally vs pending
 
 Verified in this local macOS session:
 
-- 112 of 116 tests passing (`npm test`). The four remaining tests bind a loopback port (`reserveLoopbackPort`, `waitUntilReady`, and one `HarnessRuntime` case in `test/runtime.test.ts`) and fail with `EPERM` inside this restricted sandbox, which denies loopback binds; they pass on CI and on a normal developer machine.
+- `npm test` reports **125 passed, 4 failed** out of 129 and exits non-zero in this restricted sandbox. All four failures are the permitted loopback-bind error `Error: listen EPERM: operation not permitted 127.0.0.1`; no other failure is accepted. The normal Windows/macOS runner release gate remains **129/129**.
 - Typecheck clean (`npm run typecheck`).
 - electron-vite build successful (`npm run build`), with the expected warning that only the main process is configured.
 - `scripts/prepare-profile-web.mjs` stages `dshmarket@1.14.1` and `dsh-find-plugin@0.3.7` into `build/profile-web/payload`: symlink-free npm production tree, zero `@deepseek-ai` duplication, idempotent reruns. The payload nests below the copy root because electron-builder drops a root-level `node_modules` of an extraResources source directory. Plugin peers (`@deepseek-ai/cordis@4.0.1`, `@deepseek-ai/dsh-settings@0.1.0-rc.7`, `@deepseek-ai/dsh-tools@0.1.0-rc.7`) resolve against the repository closure.
-- The vendored pnpm probe path: the bundled `node_modules/node/bin/node` runs the pinned `node_modules/pnpm/bin/pnpm.cjs` and prints `11.7.0`; a simulated dshmarket probe with the tooling stripped from PATH fails corepack/npm/pnpm (ENOENT, the 0.1.0-rc.2 real-machine symptom), and the same probe with a generated launcher directory on PATH resolves `pnpm --version` to `11.7.0` (exit 0) — the exact success gate dshmarket's `provisionPnpm` checks.
+- The vendored pnpm probe path: the bundled `node_modules/node/bin/node` runs the pinned `node_modules/pnpm/bin/pnpm.cjs` and prints `11.8.0`; a simulated dshmarket probe with the tooling stripped from PATH fails corepack/npm/pnpm (ENOENT, the 0.1.0-rc.2 real-machine symptom), and the same probe with a generated launcher directory on PATH resolves `pnpm --version` to `11.8.0` (exit 0) — the exact success gate dshmarket's `provisionPnpm` checks.
 - The vendored dsh launcher path: the bundled `node_modules/node/bin/node` runs `@deepseek-ai/dsh/lib/bin.js --version` and prints `0.1.0-rc.7` (exit 0) — the exact command line `dsh.cmd` forwards on the real machine, answering dshmarket's bare-`dsh` re-invocation (`dshArgv` falls back to PATH because the harness entry does not match its `bin.js`-shaped argv[1] check).
 - A clean `npm ci` reapplies the pinned `@deepseek-ai/dsh-app-boot` patch through the `postinstall` script.
 - Desktop splash captures at `1280x800` and `800x600`, reviewed through `agent-vision-mcp` and two independent read-only passes with no blockers.
@@ -116,6 +127,7 @@ Verified on CI and a real Windows machine (2026-08-19):
 Pending, not yet executed or proven:
 
 - The vendored web profile seed on a packaged Windows build: the staging script is verified locally, but the first-launch seed has not yet run through a Windows smoke. The next `workflow_dispatch` run on this revision is the gate.
+- The RC.8 → RC.9 upgrade and end-user flow from the published GitHub assets: profile/session/settings preservation, real prompt/tool use, marketplace installation, restart, and uninstall/reinstall behavior remain post-release manual acceptance items. They are not certified by the unit test or HTTP readiness gates.
 
 ## Manual vendored-profile checks
 

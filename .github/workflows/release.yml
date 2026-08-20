@@ -4,6 +4,10 @@ on:
   push:
     tags: ['v*']
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -17,13 +21,19 @@ jobs:
         with:
           node-version: 24.19.0
           cache: npm
-      - name: Verify release tag matches package version
+      - name: Derive and verify release metadata
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/release-metadata.mjs
+      - name: Verify release notes before build
         shell: pwsh
+        env:
+          RELEASE_NOTES_PATH: ${{ steps.metadata.outputs.release_notes_path }}
         run: |
-          $packageVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $expectedTag = "v$packageVersion"
-          if ("${{ github.ref_name }}" -ne $expectedTag) {
-            throw "Release tag ${{ github.ref_name }} does not match package version $packageVersion (expected $expectedTag)."
+          $ErrorActionPreference = "Stop"
+          if (-not (Test-Path -LiteralPath $env:RELEASE_NOTES_PATH -PathType Leaf)) {
+            throw "Release notes are missing: $env:RELEASE_NOTES_PATH"
           }
       - name: Install dependencies
         run: npm ci
@@ -93,7 +103,7 @@ jobs:
           }
 
           # The pnpm launcher written under userData/tools forwards to this
-          # entry (pnpm@11.7.0 shipped as a direct dependency). If
+          # entry (pnpm@11.8.0 shipped as a direct dependency). If
           # electron-builder's production collector dropped it, the market's
           # one-click pnpm setup would fail again on tooling-free machines.
           function Assert-VendoredPnpm {
@@ -106,7 +116,7 @@ jobs:
             if (-not (Test-Path $pnpmEntry)) {
               throw "$Label vendored pnpm is missing from the packaged closure (electron-builder dropped node_modules/pnpm): $pnpmEntry"
             }
-            Write-Host "::notice::vendored pnpm 11.7.0 present in packaged tree."
+            Write-Host "::notice::vendored pnpm 11.8.0 present in packaged tree."
           }
 
           function Invoke-PackagedSmoke {
@@ -247,18 +257,79 @@ jobs:
       - name: Upload unsigned NSIS setup
         uses: actions/upload-artifact@v5
         with:
-          name: dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-nsis
-          path: dist/dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-setup.exe
+          name: ${{ steps.metadata.outputs.windows_artifact_name }}
+          path: ${{ steps.metadata.outputs.windows_path }}
           if-no-files-found: error
-      - name: Publish GitHub prerelease
+      - name: Create or update draft GitHub release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.metadata.outputs.expected_tag }}
+          RELEASE_TITLE: ${{ steps.metadata.outputs.release_title }}
+          RELEASE_NOTES_PATH: ${{ steps.metadata.outputs.release_notes_path }}
+          IS_PRERELEASE: ${{ steps.metadata.outputs.is_prerelease }}
+          WINDOWS_PATH: ${{ steps.metadata.outputs.windows_path }}
         run: |
-          gh release create "${{ github.ref_name }}" `
-            dist/dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-setup.exe `
-            --title "DSH Flightdeck ${{ github.ref_name }} · bundled DSH 0.1.0-rc.7" `
-            --prerelease `
-            --generate-notes
+          $ErrorActionPreference = "Stop"
+          Set-StrictMode -Version Latest
+
+          if (-not (Test-Path -LiteralPath $env:WINDOWS_PATH -PathType Leaf)) {
+            throw "Windows installer is missing: $env:WINDOWS_PATH"
+          }
+
+          $isPrerelease = $env:IS_PRERELEASE -eq "true"
+          $existingJson = & gh release view $env:RELEASE_TAG --json isDraft,isPrerelease 2>$null
+          $viewExitCode = $LASTEXITCODE
+          if ($viewExitCode -eq 0) {
+            $existing = ($existingJson -join "`n") | ConvertFrom-Json
+            if (-not [bool]$existing.isDraft) {
+              throw "Release $env:RELEASE_TAG is already public; refusing to mutate it."
+            }
+            $prereleaseValue = $env:IS_PRERELEASE.ToLowerInvariant()
+            & gh release edit $env:RELEASE_TAG `
+              --title $env:RELEASE_TITLE `
+              --notes-file $env:RELEASE_NOTES_PATH `
+              "--prerelease=$prereleaseValue" `
+              --latest=false
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to update draft release $env:RELEASE_TAG."
+            }
+          } elseif ($viewExitCode -eq 1) {
+            $createArgs = @(
+              "release", "create", $env:RELEASE_TAG,
+              "--draft",
+              "--verify-tag",
+              "--title", $env:RELEASE_TITLE,
+              "--notes-file", $env:RELEASE_NOTES_PATH,
+              "--latest=false"
+            )
+            if ($isPrerelease) {
+              $createArgs += "--prerelease"
+            }
+            & gh @createArgs
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to create draft release $env:RELEASE_TAG."
+            }
+          } else {
+            throw "Unable to inspect release $env:RELEASE_TAG (gh exit code $viewExitCode)."
+          }
+
+          $stateJson = & gh release view $env:RELEASE_TAG --json isDraft,isPrerelease 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to verify draft release $env:RELEASE_TAG."
+          }
+          $state = ($stateJson -join "`n") | ConvertFrom-Json
+          if (-not [bool]$state.isDraft) {
+            throw "Release $env:RELEASE_TAG is not a draft after setup."
+          }
+          if ([bool]$state.isPrerelease -ne $isPrerelease) {
+            throw "Release $env:RELEASE_TAG has an unexpected prerelease state."
+          }
+
+          & gh release upload $env:RELEASE_TAG $env:WINDOWS_PATH --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to upload Windows installer to $env:RELEASE_TAG."
+          }
       - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v5
@@ -280,6 +351,16 @@ jobs:
         with:
           node-version: 24.19.0
           cache: npm
+      - name: Derive and verify release metadata
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/release-metadata.mjs
+      - name: Verify release notes before build
+        shell: bash
+        env:
+          RELEASE_NOTES_PATH: ${{ steps.metadata.outputs.release_notes_path }}
+        run: test -f "$RELEASE_NOTES_PATH"
       - name: Install dependencies
         run: npm ci
       - name: Test
@@ -364,7 +445,7 @@ jobs:
           }
 
           # The pnpm launcher written under userData/tools forwards to this
-          # entry (pnpm@11.7.0 shipped as a direct dependency).
+          # entry (pnpm@11.8.0 shipped as a direct dependency).
           assert_pnpm() {
             local label="$1" app_root="$2"
             local entry="$app_root/Contents/Resources/app/node_modules/pnpm/bin/pnpm.cjs"
@@ -372,7 +453,7 @@ jobs:
               echo "::error::$label vendored pnpm is missing from the packaged closure: $entry"
               exit 1
             fi
-            echo "::notice::$label vendored pnpm 11.7.0 present in packaged tree."
+            echo "::notice::$label vendored pnpm 11.8.0 present in packaged tree."
           }
 
           smoke_app() {
@@ -477,10 +558,81 @@ jobs:
           assert_seed "mac-dmg-installed" "$INSTALLED_BUNDLE"
           assert_pnpm "mac-dmg-installed" "$INSTALLED_BUNDLE"
           smoke_app "mac-dmg-installed" "$INSTALLED_BUNDLE/Contents/MacOS/DSH Flightdeck" "$RUNNER_TEMP/dsh-flightdeck-smoke-mac-dmg-installed"
-      - name: Attach macOS dmg to prerelease
+      - name: Upload macOS dmg to draft release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.ref_name }}" dist/dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-mac-arm64.dmg --clobber
+          RELEASE_TAG: ${{ steps.metadata.outputs.expected_tag }}
+          IS_PRERELEASE: ${{ steps.metadata.outputs.is_prerelease }}
+          MAC_PATH: ${{ steps.metadata.outputs.mac_path }}
+        run: |
+          set -euo pipefail
+
+          test -f "$MAC_PATH"
+          if ! state="$(gh release view "$RELEASE_TAG" --json isDraft,isPrerelease --jq '[.isDraft,.isPrerelease] | @tsv')"; then
+            echo "::error::draft release $RELEASE_TAG is missing or cannot be inspected"
+            exit 1
+          fi
+          IFS=$'\t' read -r is_draft actual_prerelease <<< "$state"
+          test "$is_draft" = "true"
+          test "$actual_prerelease" = "$IS_PRERELEASE"
+          if ! gh release upload "$RELEASE_TAG" "$MAC_PATH" --clobber; then
+            echo "::error::failed to upload macOS dmg to $RELEASE_TAG"
+            exit 1
+          fi
+
+      - name: Verify release assets and publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.metadata.outputs.expected_tag }}
+          IS_PRERELEASE: ${{ steps.metadata.outputs.is_prerelease }}
+          WINDOWS_FILENAME: ${{ steps.metadata.outputs.windows_filename }}
+          MAC_FILENAME: ${{ steps.metadata.outputs.mac_filename }}
+        run: |
+          set -euo pipefail
+
+          if ! state="$(gh release view "$RELEASE_TAG" --json isDraft,isPrerelease --jq '[.isDraft,.isPrerelease] | @tsv')"; then
+            echo "::error::unable to inspect release $RELEASE_TAG before publishing"
+            exit 1
+          fi
+          IFS=$'\t' read -r is_draft actual_prerelease <<< "$state"
+          test "$is_draft" = "true"
+          test "$actual_prerelease" = "$IS_PRERELEASE"
+
+          if ! asset_names="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"; then
+            echo "::error::unable to inspect assets for $RELEASE_TAG"
+            exit 1
+          fi
+          printf '%s\n' "$asset_names" | grep -Fqx -- "$WINDOWS_FILENAME"
+          printf '%s\n' "$asset_names" | grep -Fqx -- "$MAC_FILENAME"
+
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            if ! gh release edit "$RELEASE_TAG" --draft=false --prerelease=true --latest=false; then
+              echo "::error::failed to publish prerelease $RELEASE_TAG"
+              exit 1
+            fi
+          else
+            if ! gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest; then
+              echo "::error::failed to publish stable release $RELEASE_TAG"
+              exit 1
+            fi
+          fi
+
+          if ! final_state="$(gh release view "$RELEASE_TAG" --json isDraft,isPrerelease --jq '[.isDraft,.isPrerelease] | @tsv')"; then
+            echo "::error::unable to verify published release $RELEASE_TAG"
+            exit 1
+          fi
+          IFS=$'\t' read -r final_draft final_prerelease <<< "$final_state"
+          test "$final_draft" = "false"
+          test "$final_prerelease" = "$IS_PRERELEASE"
+          if [ "$IS_PRERELEASE" != "true" ]; then
+            if ! latest_tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"; then
+              echo "::error::unable to verify latest release $RELEASE_TAG"
+              exit 1
+            fi
+            test "$latest_tag" = "$RELEASE_TAG"
+          fi
       - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v5

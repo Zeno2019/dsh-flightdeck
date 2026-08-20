@@ -48,7 +48,7 @@ function buildPosixLauncherContent(nodeExecutable: string, entry: string): strin
 }
 
 /**
- * The pnpm package entry shipped inside the app closure. pnpm@11.7.0 is a
+ * The pnpm package entry shipped inside the app closure. pnpm@11.8.0 is a
  * dependency-free JS package (engines node >=22.13, satisfied by the
  * vendored node@24.19.0), so electron-builder's production collector ships
  * it like any other direct dependency.

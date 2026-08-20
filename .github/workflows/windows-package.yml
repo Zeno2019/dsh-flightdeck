@@ -16,6 +16,9 @@ jobs:
         with:
           node-version: 24.19.0
           cache: npm
+      - name: Derive package metadata
+        id: metadata
+        run: node scripts/release-metadata.mjs
       - name: Install dependencies
         run: npm ci
       - name: Test
@@ -84,7 +87,7 @@ jobs:
           }
 
           # The pnpm launcher written under userData/tools forwards to this
-          # entry (pnpm@11.7.0 shipped as a direct dependency). If
+          # entry (pnpm@11.8.0 shipped as a direct dependency). If
           # electron-builder's production collector dropped it, the market's
           # one-click pnpm setup would fail again on tooling-free machines.
           function Assert-VendoredPnpm {
@@ -97,7 +100,7 @@ jobs:
             if (-not (Test-Path $pnpmEntry)) {
               throw "$Label vendored pnpm is missing from the packaged closure (electron-builder dropped node_modules/pnpm): $pnpmEntry"
             }
-            Write-Host "::notice::vendored pnpm 11.7.0 present in packaged tree."
+            Write-Host "::notice::vendored pnpm 11.8.0 present in packaged tree."
           }
 
           function Invoke-PackagedSmoke {
@@ -238,8 +241,8 @@ jobs:
       - name: Upload unsigned NSIS setup
         uses: actions/upload-artifact@v5
         with:
-          name: dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-nsis
-          path: dist/dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-setup.exe
+          name: ${{ steps.metadata.outputs.windows_artifact_name }}
+          path: ${{ steps.metadata.outputs.windows_path }}
           if-no-files-found: error
       - name: Upload failure diagnostics
         if: failure()

@@ -16,6 +16,9 @@ jobs:
         with:
           node-version: 24.19.0
           cache: npm
+      - name: Derive package metadata
+        id: metadata
+        run: node scripts/release-metadata.mjs
       - name: Install dependencies
         run: npm ci
       - name: Test
@@ -100,7 +103,7 @@ jobs:
           }
 
           # The pnpm launcher written under userData/tools forwards to this
-          # entry (pnpm@11.7.0 shipped as a direct dependency).
+          # entry (pnpm@11.8.0 shipped as a direct dependency).
           assert_pnpm() {
             local label="$1" app_root="$2"
             local entry="$app_root/Contents/Resources/app/node_modules/pnpm/bin/pnpm.cjs"
@@ -108,7 +111,7 @@ jobs:
               echo "::error::$label vendored pnpm is missing from the packaged closure: $entry"
               exit 1
             fi
-            echo "::notice::$label vendored pnpm 11.7.0 present in packaged tree."
+            echo "::notice::$label vendored pnpm 11.8.0 present in packaged tree."
           }
 
           smoke_app() {
@@ -216,8 +219,8 @@ jobs:
       - name: Upload unsigned macOS dmg
         uses: actions/upload-artifact@v5
         with:
-          name: dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-mac-arm64-dmg
-          path: dist/dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-mac-arm64.dmg
+          name: ${{ steps.metadata.outputs.mac_artifact_name }}
+          path: ${{ steps.metadata.outputs.mac_path }}
           if-no-files-found: error
       - name: Upload failure diagnostics
         if: failure()

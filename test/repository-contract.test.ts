@@ -22,14 +22,14 @@ async function readRepositoryFile(relativePath: string): Promise<string> {
 }
 
 describe("package.json", () => {
-  it("declares the exact RC.8 package identity and Apache-2.0 license", async () => {
+  it("declares the exact RC.9 package identity and Apache-2.0 license", async () => {
     // Given: the repository package.json
     // When: parsed into a typed shape
     const pkg = parsePackageJson(await readRepositoryFile("package.json"));
 
     // Then: identity matches the initialization plan review decisions
     expect(pkg.name).toBe("dsh-flightdeck");
-    expect(pkg.version).toBe("0.1.0-rc.8");
+    expect(pkg.version).toBe("0.1.0-rc.9");
     expect(pkg.license).toBe("Apache-2.0");
     expect(pkg.private).toBe(true);
     expect(pkg.type).toBe("module");
@@ -56,7 +56,7 @@ describe("package.json", () => {
     // Then: each resolves to its exact section 5.1 version
     expect(requiredString(pkg.dependencies, "@deepseek-ai/dsh")).toBe("0.1.0-rc.7");
     expect(requiredString(pkg.dependencies, "node")).toBe("24.19.0");
-    expect(requiredString(pkg.dependencies, "pnpm")).toBe("11.7.0");
+    expect(requiredString(pkg.dependencies, "pnpm")).toBe("11.8.0");
     expect(requiredString(pkg.dependencies, "ts-pattern")).toBe("5.9.0");
   });
 
@@ -150,12 +150,16 @@ describe("package.json", () => {
     expect(requiredString(scripts, "package:dir")).toContain("prepare-profile-web.mjs");
     expect(requiredString(scripts, "package:dir")).toContain("npm run prepare:app");
     expect(requiredString(scripts, "package:dir")).toContain("--publish never");
+    expect(requiredString(scripts, "package:dir")).toContain("node scripts/run-electron-builder.mjs");
     expect(requiredString(scripts, "package:win")).toContain("verify:target:win");
     expect(requiredString(scripts, "package:win")).toContain("prepare-profile-web.mjs");
     expect(requiredString(scripts, "package:win")).toContain("npm run prepare:app");
     expect(requiredString(scripts, "package:win")).toContain("--publish never");
+    expect(requiredString(scripts, "package:win")).toContain("node scripts/run-electron-builder.mjs");
     expect(requiredString(scripts, "package:mac")).toContain("npm run prepare:app");
+    expect(requiredString(scripts, "package:mac")).toContain("node scripts/run-electron-builder.mjs");
     expect(requiredString(scripts, "package:mac:dir")).toContain("npm run prepare:app");
+    expect(requiredString(scripts, "package:mac:dir")).toContain("node scripts/run-electron-builder.mjs");
   });
 
   it("declares the exact Windows x64 NSIS builder contract", async () => {
@@ -212,7 +216,7 @@ describe("package.json", () => {
       allowToChangeInstallationDirectory: true,
       createDesktopShortcut: true,
       createStartMenuShortcut: true,
-      artifactName: "dsh-flightdeck-${version}-dsh-0.1.0-rc.7-windows-${arch}-setup.${ext}",
+      artifactName: "dsh-flightdeck-${version}-dsh-${env.DSH_VERSION}-windows-${arch}-setup.${ext}",
     });
     for (const forbiddenKey of ["publish", "linux", "electronUpdaterCompatibility"] as const) {
       expect(build[forbiddenKey]).toBeUndefined();
@@ -236,8 +240,28 @@ describe("package.json", () => {
     expect(targets).toHaveLength(1);
     expect(readString(target, "target")).toBe("dmg");
     expect(readStringArray(target, "arch")).toEqual(["arm64"]);
-    expect(readString(mac, "artifactName")).toBe("dsh-flightdeck-${version}-dsh-0.1.0-rc.7-mac-${arch}.${ext}");
+    expect(readString(mac, "artifactName")).toBe("dsh-flightdeck-${version}-dsh-${env.DSH_VERSION}-mac-${arch}.${ext}");
     expect(readString(mac, "category")).toBe("public.app-category.developer-tools");
+  });
+
+  it("routes every package build through the metadata-aware electron-builder wrapper", async () => {
+    const pkg = parsePackageJson(await readRepositoryFile("package.json"));
+    const metadata = await readRepositoryFile("scripts/release-metadata.mjs");
+    const wrapper = await readRepositoryFile("scripts/run-electron-builder.mjs");
+
+    for (const name of ["package:dir", "package:win", "package:mac:dir", "package:mac"] as const) {
+      const script = requiredString(pkg.scripts, name);
+      expect(script).toContain("node scripts/run-electron-builder.mjs");
+      expect(script).toContain("--publish never");
+    }
+    expect(metadata).toContain('dependencies["@deepseek-ai/dsh"]');
+    expect(metadata).toContain("RELEASE_TAG");
+    expect(metadata).toContain("GITHUB_OUTPUT");
+    expect(metadata).toContain('releaseNotesPath = join("docs", "releases", `${expectedTag}.md`)');
+    expect(metadata).toContain('release_notes_path", "releaseNotesPath"');
+    expect(wrapper).toContain('electron-builder/cli.js');
+    expect(wrapper).toContain("DSH_VERSION");
+    expect(wrapper).toContain("process.execPath");
   });
 
   it("ships vendored pnpm and dsh launchers and injects their win32 tools directory into the harness PATH", async () => {
@@ -314,12 +338,16 @@ describe("package.json", () => {
 
 describe("license and user-visible version disclosure", () => {
   it("ships Apache-2.0 terms, third-party notices, and the tested version matrix", async () => {
-    const [license, notices, readme, readmeZh, index] = await Promise.all([
+    const [license, notices, readme, readmeZh, index, splash, testing, structure, releaseNotes] = await Promise.all([
       readRepositoryFile("LICENSE"),
       readRepositoryFile("THIRD_PARTY_NOTICES.md"),
       readRepositoryFile("README.md"),
       readRepositoryFile("README.zh-CN.md"),
       readRepositoryFile("src/main/index.ts"),
+      readRepositoryFile("build/splash.html"),
+      readRepositoryFile("docs/testing.md"),
+      readRepositoryFile("docs/project-structure.md"),
+      readRepositoryFile("docs/releases/v0.1.0-rc.9.md"),
     ]);
 
     expect(license).toContain("Apache License");
@@ -334,13 +362,30 @@ describe("license and user-visible version disclosure", () => {
       expect(notices).toContain(component);
     }
     for (const userDocument of [readme, readmeZh]) {
-      expect(userDocument).toContain("0.1.0-rc.8");
+      expect(userDocument).toContain("0.1.0-rc.9");
       expect(userDocument).toContain("0.1.0-rc.7");
       expect(userDocument).toContain("31fdd22a4265aef3107d9fca05854bea78a9af10");
       expect(userDocument).toContain("Apache License 2.0");
     }
     expect(readme).toContain("Release testing is limited");
+    expect(readme).toContain("dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-windows-x64-setup.exe");
+    expect(readme).toContain("dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-mac-arm64.dmg");
+    expect(readme).toContain("no Authenticode signature");
+    expect(readme).toContain("Do not disable Gatekeeper globally");
     expect(readmeZh).toContain("发布测试仅覆盖");
+    expect(readmeZh).toContain("没有 Authenticode 签名");
+    expect(splash).toContain("v0.1.0-rc.9");
+    expect(splash).toContain("local loopback");
+    expect(splash).toContain("DSH/providers/plugins may use network");
+    expect(splash).not.toContain(["no", "network"].join(" "));
+    expect(testing).toContain("129 tests across 8 files");
+    expect(testing).toContain("125 passed, 4 failed");
+    expect(testing).toContain("Error: listen EPERM: operation not permitted 127.0.0.1");
+    expect(structure).toContain("dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-windows-x64-setup.exe");
+    expect(structure).toContain("Draft Release");
+    expect(releaseNotes).toContain("RC.9 is a prerelease, not a stable release.");
+    expect(releaseNotes).toContain("RC.8 → RC.9");
+    expect(releaseNotes).toContain("Do not disable Gatekeeper globally");
     expect(index).toContain('const BUNDLED_DSH_VERSION = "0.1.0-rc.7"');
     expect(index).toContain("app.getVersion()");
   });
@@ -358,7 +403,7 @@ describe("package-lock.json", () => {
     expect(lock.lockfileVersion).toBe(3);
     expect(lock.name).toBe(pkg.name);
     expect(lock.version).toBe(pkg.version);
-    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.8");
+    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.9");
   });
 
   it("locks the exact pinned runtime inputs", async () => {
@@ -369,7 +414,7 @@ describe("package-lock.json", () => {
     // Then: they resolve to the exact section 5.1 versions
     expect(lockEntryVersion(lock, "node_modules/@deepseek-ai/dsh")).toBe("0.1.0-rc.7");
     expect(lockEntryVersion(lock, "node_modules/node")).toBe("24.19.0");
-    expect(lockEntryVersion(lock, "node_modules/pnpm")).toBe("11.7.0");
+    expect(lockEntryVersion(lock, "node_modules/pnpm")).toBe("11.8.0");
   });
 });
 
@@ -416,6 +461,10 @@ describe(".github/workflows/windows-package.yml", () => {
     expect(workflow).toContain("actions/setup-node@v5");
     expect(workflow).toContain("node-version: 24.19.0");
     expect(workflow).toContain("cache: npm");
+    expect(workflow).toContain("id: metadata");
+    expect(workflow).toContain("node scripts/release-metadata.mjs");
+    expect(workflow).toContain("steps.metadata.outputs.windows_artifact_name");
+    expect(workflow).toContain("steps.metadata.outputs.windows_path");
     for (const command of ["npm ci", "npm test", "npm run typecheck", "npm run package:win"] as const) {
       expect(workflow).toContain(command);
     }
@@ -467,7 +516,7 @@ describe(".github/workflows/windows-package.yml", () => {
     expect(workflow).toContain("resources/app/node_modules/pnpm/bin/pnpm.cjs");
     expect(workflow).toContain('Assert-VendoredPnpm -Label "win-unpacked"');
     expect(workflow).toContain('Assert-VendoredPnpm -Label "installed"');
-    expect(workflow).toContain("::notice::vendored pnpm 11.7.0 present in packaged tree.");
+    expect(workflow).toContain("::notice::vendored pnpm 11.8.0 present in packaged tree.");
   });
 
   it("uploads one setup with strict absence handling and no distribution authority", async () => {
@@ -477,31 +526,51 @@ describe(".github/workflows/windows-package.yml", () => {
     // When: upload and authority tokens are inspected
     // Then: the setup is mandatory, diagnostics are failure-only, and distribution remains impossible
     expect(workflow).toContain("actions/upload-artifact@v5");
-    expect(workflow).toContain("dist/dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-setup.exe");
+    expect(workflow).toContain("steps.metadata.outputs.windows_artifact_name");
+    expect(workflow).toContain("steps.metadata.outputs.windows_path");
     expect(workflow).toContain("if-no-files-found: error");
     expect(workflow).toContain("if: failure()");
     expect(workflow).toContain("if-no-files-found: warn");
     expect(workflow).not.toMatch(/^\s*push:/m);
     expect(workflow).not.toContain("tags:");
-    for (const forbiddenToken of ["GH_TOKEN", "secrets.", "release", "publish", "signing"] as const) {
+    for (const forbiddenToken of ["GH_TOKEN", "secrets.", "gh release", "contents: write", "publish", "signing"] as const) {
+      expect(workflow).not.toContain(forbiddenToken);
+    }
+  });
+});
+
+describe(".github/workflows/mac-package.yml", () => {
+  it("is a bounded manual unsigned macOS package gate with dynamic metadata", async () => {
+    const workflow = await readRepositoryFile(".github/workflows/mac-package.yml");
+
+    expect(workflow).toMatch(/^on:\r?\n  workflow_dispatch:\r?\n\r?\npermissions:/m);
+    expect(workflow).toContain("contents: read");
+    expect(workflow).toContain("runs-on: macos-latest");
+    expect(workflow).toContain("node scripts/release-metadata.mjs");
+    expect(workflow).toContain("npm run package:mac");
+    expect(workflow).toContain("steps.metadata.outputs.mac_artifact_name");
+    expect(workflow).toContain("steps.metadata.outputs.mac_path");
+    expect(workflow).toContain("if-no-files-found: error");
+    for (const forbiddenToken of ["GH_TOKEN", "secrets.", "gh release", "contents: write"] as const) {
       expect(workflow).not.toContain(forbiddenToken);
     }
   });
 });
 
 describe(".github/workflows/release.yml", () => {
-  it("publishes a prerelease only after the packaged smokes pass", async () => {
+  it("keeps the release draft until both platform assets pass", async () => {
     // Given: the tag-triggered release workflow
     const release = await readRepositoryFile(".github/workflows/release.yml");
+    const [windowsJob, macJob] = release.split(/\n  release-mac:/, 2);
 
     // When: trigger, permissions, runner, and gates are inspected
     // Then: only a version tag push can publish, and only with write
     // permissions on the same smoke-gated pipeline as the manual workflow
     expect(release).toMatch(/^on:\r?\n  push:\r?\n    tags: \['v\*'\]/m);
     expect(release).toContain("contents: write");
-    expect(release).toContain("Verify release tag matches package version");
-    expect(release).toContain('$expectedTag = "v$packageVersion"');
-    expect(release).toContain('if ("${{ github.ref_name }}" -ne $expectedTag)');
+    expect(release).toContain("Derive and verify release metadata");
+    expect(release).toContain("node scripts/release-metadata.mjs");
+    expect(release).toContain("RELEASE_TAG");
     expect(release).toContain("runs-on: windows-latest");
     expect(release).toContain("timeout-minutes: 45");
     for (const command of ["npm ci", "npm test", "npm run typecheck", "npm run package:win"] as const) {
@@ -518,16 +587,41 @@ describe(".github/workflows/release.yml", () => {
     expect(release).toContain("resources/app/node_modules/pnpm/bin/pnpm.cjs");
     expect(release).toContain('Assert-VendoredPnpm -Label "win-unpacked"');
     expect(release).toContain('Assert-VendoredPnpm -Label "installed"');
-    expect(release).toContain("::notice::vendored pnpm 11.7.0 present in packaged tree.");
+    expect(release).toContain("::notice::vendored pnpm 11.8.0 present in packaged tree.");
 
     // Then: the prerelease publish attaches the exact setup executable
-    expect(release).toContain("gh release create");
-    expect(release).toContain("dsh-flightdeck-0.1.0-rc.8-dsh-0.1.0-rc.7-windows-x64-setup.exe");
-    expect(release).toContain("bundled DSH 0.1.0-rc.7");
-    expect(release).toContain("--prerelease");
-    expect(release).toContain("--generate-notes");
+    const generatedNotesFlag = ["--generate", "notes"].join("-");
+    expect(windowsJob).toContain("Create or update draft GitHub release");
+    expect(windowsJob).toContain("--draft");
+    expect(windowsJob).toContain("--verify-tag");
+    expect(windowsJob).toContain("--notes-file");
+    expect(windowsJob).not.toContain(generatedNotesFlag);
+    expect(windowsJob).toContain("already public");
+    expect(windowsJob).toContain("steps.metadata.outputs.windows_path");
+    expect(windowsJob).not.toContain("--draft=false");
+    expect(windowsJob).not.toContain("dist/dsh-flightdeck-");
+    expect(release).toContain("release_notes_path");
+    expect(release).toContain("Verify release notes before build");
+    expect(release).toContain("--notes-file");
+    expect(release).not.toContain(generatedNotesFlag);
     expect(release).toContain("GH_TOKEN: ${{ github.token }}");
     expect(release).toContain("dsh-flightdeck-windows-diagnostics");
+    expect(macJob).toContain("needs: release");
+    expect(macJob).toContain("node scripts/release-metadata.mjs");
+    expect(macJob).toContain("npm run package:mac");
+    expect(macJob).toContain("steps.metadata.outputs.mac_path");
+    expect(macJob).toContain("Upload macOS dmg to draft release");
+    expect(macJob).toContain("gh release upload");
+    expect(macJob).toContain("Verify release assets and publish");
+    expect(macJob).toContain("WINDOWS_FILENAME");
+    expect(macJob).toContain("MAC_FILENAME");
+    expect(macJob).toContain("grep -Fqx");
+    expect(macJob).toContain("--draft=false");
+    expect(macJob).toContain("--prerelease=true");
+    expect(macJob).toContain("--prerelease=false");
+    expect(macJob).toContain("--latest");
+    expect(macJob).toContain("--latest=false");
+    expect(macJob).toContain("dsh-flightdeck-macos-diagnostics");
   });
 });
 

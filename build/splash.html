@@ -62,13 +62,13 @@
 <main role="status" aria-live="polite" aria-busy="true">
   <header>
     <div class="badge" aria-hidden="true"><span></span></div>
-    <h1>DSH Flightdeck<span class="tag">v0.0.1</span></h1>
+    <h1>DSH Flightdeck<span class="tag">v0.1.0-rc.9</span></h1>
   </header>
   <p class="lede">Starting the local runtime. The official DSH Web UI will load once the loopback endpoint is ready.</p>
   <dl aria-label="Startup status">
     <dt>process</dt><dd>main &middot; electron 43</dd>
     <dt>runtime</dt><dd>node 24.19.0 (bundled)</dd>
-    <dt>network</dt><dd>loopback only &middot; 127.0.0.1</dd>
+    <dt>UI endpoint</dt><dd>local loopback &middot; 127.0.0.1</dd>
     <dt>policy</dt><dd>exact origin &middot; contextIsolation &middot; sandbox</dd>
   </dl>
   <div class="meter" aria-hidden="true"></div>
@@ -78,7 +78,7 @@
   </div>
   <footer>
     <span>build &middot; splash</span>
-    <span>no telemetry &middot; no network</span>
+    <span>no telemetry &middot; DSH/providers/plugins may use network</span>
   </footer>
 </main>
 </body>

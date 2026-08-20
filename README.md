@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml"><img src="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/Flightdeck-0.1.0--rc.8-blue" alt="Flightdeck 0.1.0-rc.8" />
+  <img src="https://img.shields.io/badge/Flightdeck-0.1.0--rc.9-blue" alt="Flightdeck 0.1.0-rc.9" />
   <img src="https://img.shields.io/badge/Bundled_DSH-0.1.0--rc.7-5b5bd6" alt="Bundled DSH 0.1.0-rc.7" />
   <img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-lightgrey" alt="Platforms" />
 </p>
@@ -24,9 +24,11 @@ Your profile lives under the app's own user-data directory and is never overwrit
 
 ## Version & compatibility
 
+**RC.9 is a prerelease, not a stable release.**
+
 | Component | Bundled version |
 |---|---:|
-| DSH Flightdeck | `0.1.0-rc.8` |
+| DSH Flightdeck | `0.1.0-rc.9` |
 | DSH core | `0.1.0-rc.7` |
 | `dshmarket` | `1.14.1` |
 | `dsh-find-plugin` | `0.3.7` |
@@ -39,12 +41,16 @@ Before installing, upgrading, or replacing another plugin, verify that it declar
 
 ## Download & install
 
-Grab the latest prerelease from [Releases](https://github.com/Zeno2019/dsh-flightdeck/releases):
+Grab the RC.9 prerelease from [Releases](https://github.com/Zeno2019/dsh-flightdeck/releases). RC.9 is not stable and is not a promise of complete plugin or platform compatibility.
 
-- **Windows x64** — run the setup exe. It is unsigned, so SmartScreen may warn: choose *More info → Run anyway*.
-- **macOS arm64 (Apple Silicon)** — open the dmg and drag the app into `/Applications`. It is unsigned, so Gatekeeper blocks the first launch: right-click the app in Finder and choose *Open*, or run once in a terminal: `xattr -d com.apple.quarantine /Applications/DSH\ Flightdeck.app`. Intel Macs are not supported yet.
+The exact release assets are:
 
-First launch shows a brief splash page, then the DSH Web UI.
+- **Windows x64** — `dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-windows-x64-setup.exe`
+- **macOS arm64 (Apple Silicon)** — `dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-mac-arm64.dmg`
+
+The packages are unsigned: Windows has no Authenticode signature, so SmartScreen may warn; choose *More info → Run anyway* only after confirming that you downloaded the intended Release asset. macOS has no Developer ID signature or notarization, so Gatekeeper may block the first launch; in Finder, right-click the app and choose *Open*, or use **System Settings → Privacy & Security → Open Anyway** for this app. A targeted alternative is `xattr -d com.apple.quarantine /Applications/DSH\ Flightdeck.app`. Do not disable Gatekeeper globally. Intel Macs are not supported yet.
+
+First launch shows a brief splash page, then the DSH Web UI. The UI endpoint is local loopback; DSH, model providers, and plugins may still use the network.
 
 ## Positioning
 

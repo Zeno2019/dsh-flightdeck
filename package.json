@@ -1,7 +1,7 @@
 {
   "name": "dsh-flightdeck",
   "productName": "DSH Flightdeck",
-  "version": "0.1.0-rc.8",
+  "version": "0.1.0-rc.9",
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
@@ -19,10 +19,10 @@
     "verify:target:win": "node scripts/verify-target.mjs win32 x64",
     "verify:target:mac": "node scripts/verify-target.mjs darwin arm64",
     "prepare:app": "node scripts/prepare-app-node-modules.mjs",
-    "package:dir": "npm run verify:target:win && node scripts/prepare-profile-web.mjs && npm run prepare:app && npm run build && electron-builder --dir --win --x64 --publish never",
-    "package:win": "npm run verify:target:win && node scripts/prepare-profile-web.mjs && npm run prepare:app && npm run build && electron-builder --win --x64 --publish never",
-    "package:mac:dir": "npm run verify:target:mac && node scripts/prepare-profile-web.mjs && npm run prepare:app && npm run build && electron-builder --dir --mac --arm64 --publish never",
-    "package:mac": "npm run verify:target:mac && node scripts/prepare-profile-web.mjs && npm run prepare:app && npm run build && electron-builder --mac --arm64 --publish never"
+    "package:dir": "npm run verify:target:win && node scripts/prepare-profile-web.mjs && npm run prepare:app && npm run build && node scripts/run-electron-builder.mjs --dir --win --x64 --publish never",
+    "package:win": "npm run verify:target:win && node scripts/prepare-profile-web.mjs && npm run prepare:app && npm run build && node scripts/run-electron-builder.mjs --win --x64 --publish never",
+    "package:mac:dir": "npm run verify:target:mac && node scripts/prepare-profile-web.mjs && npm run prepare:app && npm run build && node scripts/run-electron-builder.mjs --dir --mac --arm64 --publish never",
+    "package:mac": "npm run verify:target:mac && node scripts/prepare-profile-web.mjs && npm run prepare:app && npm run build && node scripts/run-electron-builder.mjs --mac --arm64 --publish never"
   },
   "dependencies": {
     "@deepseek-ai/cordis-plugin-group": "1.0.1",
@@ -46,7 +46,7 @@
     "@deepseek-ai/dsh-timeout": "0.1.0-rc.7",
     "@deepseek-ai/dsh-workflow": "0.1.0-rc.7",
     "node": "24.19.0",
-    "pnpm": "11.7.0",
+    "pnpm": "11.8.0",
     "ts-pattern": "5.9.0"
   },
   "devDependencies": {
@@ -114,7 +114,7 @@
           ]
         }
       ],
-      "artifactName": "dsh-flightdeck-${version}-dsh-0.1.0-rc.7-mac-${arch}.${ext}",
+      "artifactName": "dsh-flightdeck-${version}-dsh-${env.DSH_VERSION}-mac-${arch}.${ext}",
       "category": "public.app-category.developer-tools"
     },
     "nsis": {
@@ -123,7 +123,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "artifactName": "dsh-flightdeck-${version}-dsh-0.1.0-rc.7-windows-${arch}-setup.${ext}"
+      "artifactName": "dsh-flightdeck-${version}-dsh-${env.DSH_VERSION}-windows-${arch}-setup.${ext}"
     }
   }
 }
