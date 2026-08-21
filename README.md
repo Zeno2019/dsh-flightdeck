@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml"><img src="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/Flightdeck-0.1.2-blue" alt="Flightdeck 0.1.2" />
+  <img src="https://img.shields.io/badge/Flightdeck-0.1.3-blue" alt="Flightdeck 0.1.3" />
   <img src="https://img.shields.io/badge/Bundled_DSH-0.1.0--rc.7-5b5bd6" alt="Bundled DSH 0.1.0-rc.7" />
   <img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-lightgrey" alt="Platforms" />
 </p>
