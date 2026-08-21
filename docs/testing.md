@@ -100,9 +100,9 @@ Smoke responsibilities, per executable form:
 - Verify no new `node.exe` PIDs remain beyond the baseline; kill and fail if any do.
 - Copy the harness log to the diagnostics directory.
 
-The workflow requires exactly one setup executable, uploads it with `if-no-files-found: error`, and uploads failure diagnostics with `if-no-files-found: warn`. For RC.9 the expected installer is `dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-windows-x64-setup.exe`. It creates no GitHub Release.
+The workflow requires exactly one setup executable, uploads it with `if-no-files-found: error`, and uploads failure diagnostics with `if-no-files-found: warn`. For v0.1.0 the expected installer is `dsh-flightdeck-0.1.0-dsh-0.1.0-rc.7-windows-x64-setup.exe`. It creates no GitHub Release.
 
-## RC.9 release contracts
+## Release contracts
 
 `scripts/release-metadata.mjs` derives the Flightdeck version, bundled DSH version, exact Windows and macOS asset names, prerelease state, and `release_notes_path=docs/releases/${expectedTag}.md` from the package metadata. The release workflow verifies that notes file before building. The Windows job creates or updates a Draft with `--notes-file` and uploads the NSIS asset; it does not use generated notes. The macOS job builds the target-gated arm64 DMG, uploads it to the same Draft, verifies both exact assets, and only then publishes. Release packages remain unsigned; the final release notes carry the SmartScreen/Gatekeeper and limited-validation disclosures.
 
@@ -127,7 +127,7 @@ Verified on CI and a real Windows machine (2026-08-19):
 Pending, not yet executed or proven:
 
 - The vendored web profile seed on a packaged Windows build: the staging script is verified locally, but the first-launch seed has not yet run through a Windows smoke. The next `workflow_dispatch` run on this revision is the gate.
-- The RC.8 → RC.9 upgrade and end-user flow from the published GitHub assets: profile/session/settings preservation, real prompt/tool use, marketplace installation, restart, and uninstall/reinstall behavior remain post-release manual acceptance items. They are not certified by the unit test or HTTP readiness gates.
+- The RC.8 → RC.9 upgrade and end-user flow from the published GitHub assets passed manual acceptance on 2026-08-21 (profile/session/settings preservation, real prompt/tool use, marketplace installation, restart, and uninstall/reinstall behavior). v0.1.0 is the stable promotion of that accepted RC.9 build with no functional changes.
 
 ## Manual vendored-profile checks
 

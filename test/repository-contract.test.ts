@@ -22,14 +22,14 @@ async function readRepositoryFile(relativePath: string): Promise<string> {
 }
 
 describe("package.json", () => {
-  it("declares the exact RC.9 package identity and Apache-2.0 license", async () => {
+  it("declares the exact v0.1.0 package identity and Apache-2.0 license", async () => {
     // Given: the repository package.json
     // When: parsed into a typed shape
     const pkg = parsePackageJson(await readRepositoryFile("package.json"));
 
     // Then: identity matches the initialization plan review decisions
     expect(pkg.name).toBe("dsh-flightdeck");
-    expect(pkg.version).toBe("0.1.0-rc.9");
+    expect(pkg.version).toBe("0.1.0");
     expect(pkg.license).toBe("Apache-2.0");
     expect(pkg.private).toBe(true);
     expect(pkg.type).toBe("module");
@@ -347,7 +347,7 @@ describe("license and user-visible version disclosure", () => {
       readRepositoryFile("build/splash.html"),
       readRepositoryFile("docs/testing.md"),
       readRepositoryFile("docs/project-structure.md"),
-      readRepositoryFile("docs/releases/v0.1.0-rc.9.md"),
+      readRepositoryFile("docs/releases/v0.1.0.md"),
     ]);
 
     expect(license).toContain("Apache License");
@@ -362,29 +362,29 @@ describe("license and user-visible version disclosure", () => {
       expect(notices).toContain(component);
     }
     for (const userDocument of [readme, readmeZh]) {
-      expect(userDocument).toContain("0.1.0-rc.9");
+      expect(userDocument).toContain("Flightdeck 0.1.0");
       expect(userDocument).toContain("0.1.0-rc.7");
       expect(userDocument).toContain("31fdd22a4265aef3107d9fca05854bea78a9af10");
       expect(userDocument).toContain("Apache License 2.0");
     }
     expect(readme).toContain("Release testing is limited");
-    expect(readme).toContain("dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-windows-x64-setup.exe");
-    expect(readme).toContain("dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-mac-arm64.dmg");
+    expect(readme).toContain("dsh-flightdeck-0.1.0-dsh-0.1.0-rc.7-windows-x64-setup.exe");
+    expect(readme).toContain("dsh-flightdeck-0.1.0-dsh-0.1.0-rc.7-mac-arm64.dmg");
     expect(readme).toContain("no Authenticode signature");
     expect(readme).toContain("Do not disable Gatekeeper globally");
     expect(readmeZh).toContain("发布测试仅覆盖");
     expect(readmeZh).toContain("没有 Authenticode 签名");
-    expect(splash).toContain("v0.1.0-rc.9");
+    expect(splash).toContain("v0.1.0");
     expect(splash).toContain("local loopback");
     expect(splash).toContain("DSH/providers/plugins may use network");
     expect(splash).not.toContain(["no", "network"].join(" "));
     expect(testing).toContain("129 tests across 8 files");
     expect(testing).toContain("125 passed, 4 failed");
     expect(testing).toContain("Error: listen EPERM: operation not permitted 127.0.0.1");
-    expect(structure).toContain("dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-windows-x64-setup.exe");
+    expect(structure).toContain("dsh-flightdeck-0.1.0-dsh-0.1.0-rc.7-windows-x64-setup.exe");
     expect(structure).toContain("Draft Release");
-    expect(releaseNotes).toContain("RC.9 is a prerelease, not a stable release.");
-    expect(releaseNotes).toContain("RC.8 → RC.9");
+    expect(releaseNotes).toContain("First stable release");
+    expect(releaseNotes).toContain("v0.1.0");
     expect(releaseNotes).toContain("Do not disable Gatekeeper globally");
     expect(index).toContain('const BUNDLED_DSH_VERSION = "0.1.0-rc.7"');
     expect(index).toContain("app.getVersion()");
@@ -403,7 +403,7 @@ describe("package-lock.json", () => {
     expect(lock.lockfileVersion).toBe(3);
     expect(lock.name).toBe(pkg.name);
     expect(lock.version).toBe(pkg.version);
-    expect(lockEntryVersion(lock, "")).toBe("0.1.0-rc.9");
+    expect(lockEntryVersion(lock, "")).toBe("0.1.0");
   });
 
   it("locks the exact pinned runtime inputs", async () => {

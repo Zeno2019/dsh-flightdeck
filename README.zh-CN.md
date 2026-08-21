@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml"><img src="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/Flightdeck-0.1.0--rc.9-blue" alt="Flightdeck 0.1.0-rc.9" />
+  <img src="https://img.shields.io/badge/Flightdeck-0.1.0-blue" alt="Flightdeck 0.1.0" />
   <img src="https://img.shields.io/badge/Bundled_DSH-0.1.0--rc.7-5b5bd6" alt="Bundled DSH 0.1.0-rc.7" />
   <img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-lightgrey" alt="Platforms" />
 </p>
@@ -24,11 +24,11 @@
 
 ## 版本与兼容性
 
-**RC.9 是预发布版,不是 stable 正式版。**
+**v0.1.0 是 DSH Flightdeck 的首个 stable 正式版。**
 
 | 组件 | 随附版本 |
 |---|---:|
-| DSH Flightdeck | `0.1.0-rc.9` |
+| DSH Flightdeck | `0.1.0` |
 | DSH 核心 | `0.1.0-rc.7` |
 | `dshmarket` | `1.14.1` |
 | `dsh-find-plugin` | `0.3.7` |
@@ -41,12 +41,12 @@
 
 ## 下载与安装
 
-从 [Releases](https://github.com/Zeno2019/dsh-flightdeck/releases) 获取 RC.9 预发布版。RC.9 不是 stable 正式版,也不代表所有插件或平台兼容性都已完整验证。
+从 [Releases](https://github.com/Zeno2019/dsh-flightdeck/releases) 获取 v0.1.0 stable 正式版。
 
 精确发布资产名:
 
-- **Windows x64** —— `dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-windows-x64-setup.exe`
-- **macOS arm64(Apple Silicon)** —— `dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-mac-arm64.dmg`
+- **Windows x64** —— `dsh-flightdeck-0.1.0-dsh-0.1.0-rc.7-windows-x64-setup.exe`
+- **macOS arm64(Apple Silicon)** —— `dsh-flightdeck-0.1.0-dsh-0.1.0-rc.7-mac-arm64.dmg`
 
 安装包均未签名:Windows 没有 Authenticode 签名,SmartScreen 可能警告;确认下载的是目标 Release 资产后,选择「更多信息 → 仍要运行」。macOS 没有 Developer ID 签名或 notarization,Gatekeeper 可能拦截首次启动;在 Finder 中右键应用选择「打开」,或到「系统设置 → 隐私与安全性」对这个应用选择「仍要打开」。也可只针对该应用执行: `xattr -d com.apple.quarantine /Applications/DSH\ Flightdeck.app`。不要全局关闭 Gatekeeper。暂不支持 Intel Mac。
 
