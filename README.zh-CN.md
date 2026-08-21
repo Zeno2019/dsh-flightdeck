@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml"><img src="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/Flightdeck-0.1.1-blue" alt="Flightdeck 0.1.1" />
+  <img src="https://img.shields.io/badge/Flightdeck-0.1.2-blue" alt="Flightdeck 0.1.2" />
   <img src="https://img.shields.io/badge/Bundled_DSH-0.1.0--rc.7-5b5bd6" alt="Bundled DSH 0.1.0-rc.7" />
   <img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-lightgrey" alt="Platforms" />
 </p>
@@ -15,38 +15,24 @@
 
 **预装优选插件,开箱即用(首次启动自动激活):**
 
-- `dshmarket` 1.14.1 —— 插件市场
-- `dsh-find-plugin` 0.3.7 —— 按名称或关键词查找插件
-- `dsh-anchored-subagent` 0.3.0 —— 每个会话首请求以 Minimal 双工具集条件启动,再解锁完整工具目录
-- `dsh-better-sidebar` 0.13.1 —— 织入 web UI 的 VSCode 式右侧栏(文件树、编辑器、终端、git 面板)
+- `dshmarket` —— 插件市场
+- `dsh-find-plugin` —— 按名称或关键词查找插件
+- `dsh-anchored-subagent` —— 每个会话首请求以 Minimal 双工具集条件启动,再解锁完整工具目录
+- `dsh-better-sidebar` —— 织入 web UI 的 VSCode 式右侧栏(文件树、编辑器、终端、git 面板)
+
+应用、DSH 核心与插件的内置版本按发布精确锁定,以 [Releases](https://github.com/Zeno2019/dsh-flightdeck/releases) 页面各版本的矩阵为准。
 
 你的 profile 存放在应用自己的 user-data 目录下,应用更新不会覆盖它。全新安装使用该构建随附的插件版本;更新后的既有 profile 可能继续保留旧版或用户自行管理的插件。
 
-## 版本与兼容性
-
-**v0.1.1 是 DSH Flightdeck 的最新 stable 正式版。**
-
-| 组件 | 随附版本 |
-|---|---:|
-| DSH Flightdeck | `0.1.1` |
-| DSH 核心 | `0.1.0-rc.7` |
-| `dshmarket` | `1.14.1` |
-| `dsh-find-plugin` | `0.3.7` |
-| `dsh-anchored-subagent` | `0.3.0` (`31fdd22a4265aef3107d9fca05854bea78a9af10`) |
-| `dsh-better-sidebar` | `0.13.1` |
+## 兼容性
 
 **兼容性说明:** 发布测试仅覆盖 Windows x64 与 macOS arm64 上的安装/解包、应用启动、DSH HTTP 就绪和打包文件检查,不代表每项插件功能、所有系统环境、网络条件或用户自行管理的插件都经过完整验证。
 
-安装、升级或替换其他插件前,请先确认插件声明支持 DSH `0.1.0-rc.7`,并备份 profile。既有 profile 会在应用更新后保留,因此其中实际生效的插件版本可能与上面的全新安装矩阵不同。
+安装、升级或替换其他插件前,请先确认插件声明支持随附的 DSH 核心,并备份 profile。既有 profile 会在应用更新后保留,因此其中实际生效的插件版本可能与某次发布的全新安装默认值不同。
 
 ## 下载与安装
 
 从 [Releases](https://github.com/Zeno2019/dsh-flightdeck/releases) 获取最新 stable 正式版。
-
-精确发布资产名:
-
-- **Windows x64** —— `dsh-flightdeck-0.1.1-dsh-0.1.0-rc.7-windows-x64-setup.exe`
-- **macOS arm64(Apple Silicon)** —— `dsh-flightdeck-0.1.1-dsh-0.1.0-rc.7-mac-arm64.dmg`
 
 安装包均未签名:Windows 没有 Authenticode 签名,SmartScreen 可能警告;确认下载的是目标 Release 资产后,选择「更多信息 → 仍要运行」。macOS 没有 Developer ID 签名或 notarization,Gatekeeper 可能拦截首次启动;在 Finder 中右键应用选择「打开」,或到「系统设置 → 隐私与安全性」对这个应用选择「仍要打开」。也可只针对该应用执行: `xattr -d com.apple.quarantine /Applications/DSH\ Flightdeck.app`。不要全局关闭 Gatekeeper。暂不支持 Intel Mac。
 

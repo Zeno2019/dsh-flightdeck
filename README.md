@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml"><img src="https://github.com/Zeno2019/dsh-flightdeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/Flightdeck-0.1.1-blue" alt="Flightdeck 0.1.1" />
+  <img src="https://img.shields.io/badge/Flightdeck-0.1.2-blue" alt="Flightdeck 0.1.2" />
   <img src="https://img.shields.io/badge/Bundled_DSH-0.1.0--rc.7-5b5bd6" alt="Bundled DSH 0.1.0-rc.7" />
   <img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20macOS%20arm64-lightgrey" alt="Platforms" />
 </p>
@@ -15,38 +15,24 @@ A desktop launcher for the DeepSeek Harness (DSH) Web UI, made for people who do
 
 **Curated plugins, preinstalled and ready on first launch:**
 
-- `dshmarket` 1.14.1 — the plugin marketplace
-- `dsh-find-plugin` 0.3.7 — find plugins by name or keyword
-- `dsh-anchored-subagent` 0.3.0 — each session opens its first request under a Minimal two-tool set, then unlocks the full tool catalog
-- `dsh-better-sidebar` 0.13.1 — a VSCode-style right sidebar (file tree, editor, terminal, git panels) in the web UI
+- `dshmarket` — the plugin marketplace
+- `dsh-find-plugin` — find plugins by name or keyword
+- `dsh-anchored-subagent` — each session opens its first request under a Minimal two-tool set, then unlocks the full tool catalog
+- `dsh-better-sidebar` — a VSCode-style right sidebar (file tree, editor, terminal, git panels) in the web UI
+
+Bundled versions of the app, DSH core, and plugins are pinned per release; see [Releases](https://github.com/Zeno2019/dsh-flightdeck/releases) for each build's exact matrix.
 
 Your profile lives under the app's own user-data directory and is never overwritten by app updates. A fresh installation uses the plugin versions bundled with that build; an existing profile can retain older or user-managed plugin versions after an update.
 
-## Version & compatibility
-
-**v0.1.1 is the latest stable release.**
-
-| Component | Bundled version |
-|---|---:|
-| DSH Flightdeck | `0.1.1` |
-| DSH core | `0.1.0-rc.7` |
-| `dshmarket` | `1.14.1` |
-| `dsh-find-plugin` | `0.3.7` |
-| `dsh-anchored-subagent` | `0.3.0` (`31fdd22a4265aef3107d9fca05854bea78a9af10`) |
-| `dsh-better-sidebar` | `0.13.1` |
+## Compatibility
 
 **Compatibility notice:** Release testing is limited to installation/unpacking, application startup, DSH HTTP readiness, and packaged-file checks on Windows x64 and macOS arm64. It does not represent complete validation of every plugin feature, system environment, network condition, or user-managed plugin.
 
-Before installing, upgrading, or replacing another plugin, verify that it declares support for DSH `0.1.0-rc.7` and back up the profile. Existing profiles are preserved across app updates, so their effective plugin versions can differ from the fresh-install matrix above.
+Before installing, upgrading, or replacing another plugin, verify that it declares support for the bundled DSH core and back up the profile. Existing profiles are preserved across app updates, so their effective plugin versions can differ from a release's fresh-install defaults.
 
 ## Download & install
 
 Grab the latest stable release from [Releases](https://github.com/Zeno2019/dsh-flightdeck/releases).
-
-The exact release assets are:
-
-- **Windows x64** — `dsh-flightdeck-0.1.1-dsh-0.1.0-rc.7-windows-x64-setup.exe`
-- **macOS arm64 (Apple Silicon)** — `dsh-flightdeck-0.1.1-dsh-0.1.0-rc.7-mac-arm64.dmg`
 
 The packages are unsigned: Windows has no Authenticode signature, so SmartScreen may warn; choose *More info → Run anyway* only after confirming that you downloaded the intended Release asset. macOS has no Developer ID signature or notarization, so Gatekeeper may block the first launch; in Finder, right-click the app and choose *Open*, or use **System Settings → Privacy & Security → Open Anyway** for this app. A targeted alternative is `xattr -d com.apple.quarantine /Applications/DSH\ Flightdeck.app`. Do not disable Gatekeeper globally. Intel Macs are not supported yet.
 

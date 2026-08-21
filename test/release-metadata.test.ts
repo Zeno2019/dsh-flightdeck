@@ -70,7 +70,7 @@ describe("release-metadata.mjs", () => {
     expect(output.get("mac_artifact_name")).toBe(
       "dsh-flightdeck-0.1.0-rc.9-dsh-0.1.0-rc.7-mac-arm64-dmg",
     );
-    expect(output.get("release_title")).toBe("DSH Flightdeck v0.1.0-rc.9 · bundled DSH 0.1.0-rc.7");
+    expect(output.get("release_title")).toBe("DSH Flightdeck v0.1.0-rc.9");
     expect(output.get("release_notes_path")).toBe("docs/releases/v0.1.0-rc.9.md");
   });
 
@@ -80,7 +80,7 @@ describe("release-metadata.mjs", () => {
     expect(output.get("is_prerelease")).toBe("false");
     expect(output.get("expected_tag")).toBe("v0.1.0+build.2");
     expect(output.get("windows_filename")).toContain("dsh-flightdeck-0.1.0+build.2-dsh-0.1.0-windows-x64-setup.exe");
-    expect(output.get("release_title")).toBe("DSH Flightdeck v0.1.0+build.2 · bundled DSH 0.1.0");
+    expect(output.get("release_title")).toBe("DSH Flightdeck v0.1.0+build.2");
     expect(output.get("release_notes_path")).toBe("docs/releases/v0.1.0+build.2.md");
   });
 

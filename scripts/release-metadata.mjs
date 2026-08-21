@@ -102,7 +102,7 @@ export function deriveReleaseMetadata(packageJson, releaseTag = undefined) {
     macFilename,
     macPath,
     macArtifactName,
-    releaseTitle: `DSH Flightdeck v${flightdeckVersion} · bundled DSH ${dshVersion}`,
+    releaseTitle: `DSH Flightdeck v${flightdeckVersion}`,
     releaseNotesPath,
   };
 }

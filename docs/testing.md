@@ -100,7 +100,7 @@ Smoke responsibilities, per executable form:
 - Verify no new `node.exe` PIDs remain beyond the baseline; kill and fail if any do.
 - Copy the harness log to the diagnostics directory.
 
-The workflow requires exactly one setup executable, uploads it with `if-no-files-found: error`, and uploads failure diagnostics with `if-no-files-found: warn`. For v0.1.1 the expected installer is `dsh-flightdeck-0.1.1-dsh-0.1.0-rc.7-windows-x64-setup.exe`. It creates no GitHub Release.
+The workflow requires exactly one setup executable, uploads it with `if-no-files-found: error`, and uploads failure diagnostics with `if-no-files-found: warn`. For v0.1.2 the expected installer is `dsh-flightdeck-0.1.2-dsh-0.1.0-rc.7-windows-x64-setup.exe`. It creates no GitHub Release.
 
 ## Release contracts
 
