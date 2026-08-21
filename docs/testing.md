@@ -123,11 +123,11 @@ Verified on CI and a real Windows machine (2026-08-19):
 
 - The `workflow_dispatch` Windows package run passed: both runtime closure notices reported 195 `@deepseek-ai` packages and both smokes reached HTTP 2xx; the `dsh-flightdeck-windows-x64-nsis` artifact was uploaded.
 - Real machine: wizard install, launch with the DSH UI loading, second launch is a single instance (no multi-instance), clean uninstall, and the bundled `@vscode/ripgrep-win32-x64@1.18.0` binary is present for file search.
+- Manual acceptance of the published RC.9 assets (2026-08-21): the RC.8 → RC.9 upgrade flow passed — profile/session/settings preservation, real prompt and tool use, marketplace installation, restart, and uninstall/reinstall behavior. v0.1.0 promotes the RC.9 build to stable with no functional changes.
 
 Pending, not yet executed or proven:
 
 - The vendored web profile seed on a packaged Windows build: the staging script is verified locally, but the first-launch seed has not yet run through a Windows smoke. The next `workflow_dispatch` run on this revision is the gate.
-- The RC.8 → RC.9 upgrade and end-user flow from the published GitHub assets passed manual acceptance on 2026-08-21 (profile/session/settings preservation, real prompt/tool use, marketplace installation, restart, and uninstall/reinstall behavior). v0.1.0 is the stable promotion of that accepted RC.9 build with no functional changes.
 
 ## Manual vendored-profile checks
 

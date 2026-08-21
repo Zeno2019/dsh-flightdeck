@@ -1,5 +1,5 @@
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, dialog, Menu } from "electron";
 import { match } from "ts-pattern";
 import type { RuntimeOutcome, RuntimeSnapshot } from "../shared/contracts.js";
@@ -12,7 +12,30 @@ import type { AppSecurityPolicy } from "./security-policy.js";
 
 const APP_ID = "dev.zeno.dsh-flightdeck" as const;
 const APP_TITLE = "DSH Flightdeck" as const;
-const BUNDLED_DSH_VERSION = "0.1.0-rc.7" as const;
+
+// The bundled DSH version is read from the installed dependency manifest so
+// it always matches the pinned dependency in package.json/package-lock.json
+// instead of drifting from a duplicated constant.
+function readBundledDshVersion(): string {
+  try {
+    const manifestPath = join(app.getAppPath(), "node_modules", "@deepseek-ai", "dsh", "package.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { version?: unknown };
+    return typeof manifest.version === "string" && manifest.version.length > 0
+      ? manifest.version
+      : "unknown";
+  } catch (error) {
+    return "unknown";
+  }
+}
+
+// The splash template carries a __FLIGHTDECK_VERSION__ placeholder; the real
+// app version is injected here at startup, so the packaged page can never
+// display a stale hardcoded version.
+function buildSplashUrl(assetsDir: string): string {
+  const template = readFileSync(join(assetsDir, "splash.html"), "utf8");
+  const html = template.replaceAll("__FLIGHTDECK_VERSION__", app.getVersion());
+  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+}
 
 // CI and portable use: point the whole per-user state tree (userData ->
 // launch/, harness/, logs/) at an explicit directory before any Electron
@@ -84,13 +107,13 @@ function handleRuntimeOutcome(window: BrowserWindow, outcome: RuntimeOutcome): P
 
 async function startMainShell(): Promise<void> {
   Menu.setApplicationMenu(null);
-  console.log(`[desktop] ${APP_TITLE} ${app.getVersion()} | bundled DSH ${BUNDLED_DSH_VERSION}`);
+  console.log(`[desktop] ${APP_TITLE} ${app.getVersion()} | bundled DSH ${readBundledDshVersion()}`);
   const paths = resolveRuntimePaths({
     mode: app.isPackaged ? "packaged" : "dev",
     platform: process.platform,
     appRoot: app.getAppPath(),
   });
-  const splashUrl = pathToFileURL(join(paths.assetsDir, "splash.html")).href;
+  const splashUrl = buildSplashUrl(paths.assetsDir);
   const window = new BrowserWindow({
     width: 1280,
     height: 800,

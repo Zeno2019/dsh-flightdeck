@@ -374,7 +374,7 @@ describe("license and user-visible version disclosure", () => {
     expect(readme).toContain("Do not disable Gatekeeper globally");
     expect(readmeZh).toContain("发布测试仅覆盖");
     expect(readmeZh).toContain("没有 Authenticode 签名");
-    expect(splash).toContain("v0.1.0");
+    expect(splash).toContain("__FLIGHTDECK_VERSION__");
     expect(splash).toContain("local loopback");
     expect(splash).toContain("DSH/providers/plugins may use network");
     expect(splash).not.toContain(["no", "network"].join(" "));
@@ -386,7 +386,8 @@ describe("license and user-visible version disclosure", () => {
     expect(releaseNotes).toContain("First stable release");
     expect(releaseNotes).toContain("v0.1.0");
     expect(releaseNotes).toContain("Do not disable Gatekeeper globally");
-    expect(index).toContain('const BUNDLED_DSH_VERSION = "0.1.0-rc.7"');
+    expect(index).toContain('join(app.getAppPath(), "node_modules", "@deepseek-ai", "dsh", "package.json")');
+    expect(index).toContain('replaceAll("__FLIGHTDECK_VERSION__"');
     expect(index).toContain("app.getVersion()");
   });
 });
