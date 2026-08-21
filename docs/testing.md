@@ -100,7 +100,7 @@ Smoke responsibilities, per executable form:
 - Verify no new `node.exe` PIDs remain beyond the baseline; kill and fail if any do.
 - Copy the harness log to the diagnostics directory.
 
-The workflow requires exactly one setup executable, uploads it with `if-no-files-found: error`, and uploads failure diagnostics with `if-no-files-found: warn`. For v0.1.0 the expected installer is `dsh-flightdeck-0.1.0-dsh-0.1.0-rc.7-windows-x64-setup.exe`. It creates no GitHub Release.
+The workflow requires exactly one setup executable, uploads it with `if-no-files-found: error`, and uploads failure diagnostics with `if-no-files-found: warn`. For v0.1.1 the expected installer is `dsh-flightdeck-0.1.1-dsh-0.1.0-rc.7-windows-x64-setup.exe`. It creates no GitHub Release.
 
 ## Release contracts
 
@@ -123,7 +123,7 @@ Verified on CI and a real Windows machine (2026-08-19):
 
 - The `workflow_dispatch` Windows package run passed: both runtime closure notices reported 195 `@deepseek-ai` packages and both smokes reached HTTP 2xx; the `dsh-flightdeck-windows-x64-nsis` artifact was uploaded.
 - Real machine: wizard install, launch with the DSH UI loading, second launch is a single instance (no multi-instance), clean uninstall, and the bundled `@vscode/ripgrep-win32-x64@1.18.0` binary is present for file search.
-- Manual acceptance of the published RC.9 assets (2026-08-21): the RC.8 → RC.9 upgrade flow passed — profile/session/settings preservation, real prompt and tool use, marketplace installation, restart, and uninstall/reinstall behavior. v0.1.0 promotes the RC.9 build to stable with no functional changes.
+- Manual acceptance of the published RC.9 assets (2026-08-21): the RC.8 → RC.9 upgrade flow passed — profile/session/settings preservation, real prompt and tool use, marketplace installation, restart, and uninstall/reinstall behavior. v0.1.0 promotes the RC.9 build to stable with no functional changes; v0.1.1 adds the runtime-derived DSH/splash version fix.
 
 Pending, not yet executed or proven:
 
