@@ -599,7 +599,16 @@ describe(".github/workflows/release.yml", () => {
     expect(windowsJob).not.toContain("--draft=false");
     expect(windowsJob).not.toContain("dist/dsh-flightdeck-");
     expect(release).toContain("release_notes_path");
+    expect(release).toContain("Prepare release notes (default Full Changelog)");
+    expect(release).toContain("node scripts/prepare-release-notes.mjs");
+    expect(release).toContain("fetch-depth: 0");
+    expect(release).toContain("GITHUB_REPOSITORY: ${{ github.repository }}");
     expect(release).toContain("Verify release notes before build");
+    const releaseNotesScript = await readRepositoryFile("scripts/prepare-release-notes.mjs");
+    expect(releaseNotesScript).toContain("docs/releases/<tag>.md is absent");
+    expect(releaseNotesScript).toContain("findPreviousVersionTag");
+    expect(releaseNotesScript).toContain("**Full Changelog**");
+    expect(releaseNotesScript).toContain("/compare/");
     expect(release).toContain("--notes-file");
     expect(release).not.toContain(generatedNotesFlag);
     expect(release).toContain("GH_TOKEN: ${{ github.token }}");

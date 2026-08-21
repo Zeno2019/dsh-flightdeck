@@ -27,6 +27,7 @@ dsh-flightdeck/
     @deepseek-ai+dsh-app-boot+0.1.0-rc.7.patch
   scripts/
     prepare-profile-web.mjs
+    prepare-release-notes.mjs
     release-metadata.mjs
     run-electron-builder.mjs
     verify-target.mjs
@@ -103,7 +104,7 @@ dsh-flightdeck/
 - **ci.yml**:master push 与全部 PR 触发,在 `windows-latest` 上跑 `npm ci` → `npm test` → `npm run typecheck` → `npm run build`。
 - **windows-package.yml**:`workflow_dispatch` 手动触发。构建安装器后,对未打包应用与静默安装的应用分别冒烟:每阶段独立 user-data 目录(`DSH_FLIGHTDECK_USER_DATA`),从 harness 日志发现 DSH loopback endpoint,轮询 HTTP 2xx,优雅关闭,并确认无 DSH Node 进程残留。
 - **mac-package.yml**:macOS 侧对应工作流,在 `macos-latest` 上构建未签名 dmg,对未打包 `.app` 与从挂载 dmg 安装的副本分别冒烟,上传 dmg 为 artifact。
-- **release.yml**:推送匹配 package version 的 `v*` tag 触发。`release-metadata.mjs` 先校验版本与 `docs/releases/${expectedTag}.md` notes 文件,再进入双平台门禁。Windows 构建、安装/启动 smoke 后创建或更新 Draft Release,使用 `--notes-file` 并上传 `dsh-flightdeck-0.1.2-dsh-0.1.0-rc.7-windows-x64-setup.exe`;`release-mac` 随后构建并 smoke macOS arm64,上传 `dsh-flightdeck-0.1.2-dsh-0.1.0-rc.7-mac-arm64.dmg`,核对 Draft 内双资产后才 publish。稳定 SemVer 发布为正式 Release 并标记 Latest;含 `-rc` 的版本保持 prerelease 且 `latest=false`。
+- **release.yml**:推送匹配 package version 的 `v*` tag 触发。`release-metadata.mjs` 先校验版本与 `docs/releases/${expectedTag}.md` notes 文件,再进入双平台门禁。Windows 构建、安装/启动 smoke 后创建或更新 Draft Release,使用 `--notes-file` 并上传 `dsh-flightdeck-0.1.2-dsh-0.1.0-rc.7-windows-x64-setup.exe`;`release-mac` 随后构建并 smoke macOS arm64,上传 `dsh-flightdeck-0.1.2-dsh-0.1.0-rc.7-mac-arm64.dmg`,核对 Draft 内双资产后才 publish。稳定 SemVer 发布为正式 Release 并标记 Latest;含 `-rc` 的版本保持 prerelease 且 `latest=false`。若仓库没有该版本的专属 `docs/releases/<tag>.md`,`scripts/prepare-release-notes.mjs` 会生成上一版本 tag → 当前 tag 的一行 `**Full Changelog**` 对比链接作为发布说明。
 
 冒烟执行记录:2026-08-19(master@71d55e1)两处 runtime closure 通知均报告 195 个 `@deepseek-ai` 包,两次冒烟均达 HTTP 2xx;安装器随后在真实 Windows 机器上完成向导安装、启动、单实例二次启动、干净卸载与内置 ripgrep 1.18.0 验证。RC.9 的 Windows/macOS GitHub 双资产手工验收通过;v0.1.0 由同一构建提升为稳定版,无功能变更;v0.1.1 改为运行时推导内置 DSH 与 splash 版本;v0.1.2 移除 README 版本锚定、简化发布标题与笔记格式。
 

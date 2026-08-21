@@ -17,6 +17,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 24.19.0
@@ -26,6 +28,11 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: node scripts/release-metadata.mjs
+      - name: Prepare release notes (default Full Changelog)
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/prepare-release-notes.mjs
       - name: Verify release notes before build
         shell: pwsh
         env:
@@ -347,6 +354,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 24.19.0
@@ -356,6 +365,11 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: node scripts/release-metadata.mjs
+      - name: Prepare release notes (default Full Changelog)
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/prepare-release-notes.mjs
       - name: Verify release notes before build
         shell: bash
         env:
