@@ -23,14 +23,14 @@ async function readRepositoryFile(relativePath: string): Promise<string> {
 }
 
 describe("package.json", () => {
-  it("declares the exact v0.1.3 package identity and Apache-2.0 license", async () => {
+  it("declares the exact v0.1.4 package identity and Apache-2.0 license", async () => {
     // Given: the repository package.json
     // When: parsed into a typed shape
     const pkg = parsePackageJson(await readRepositoryFile("package.json"));
 
     // Then: identity matches the initialization plan review decisions
     expect(pkg.name).toBe("dsh-flightdeck");
-    expect(pkg.version).toBe("0.1.3");
+    expect(pkg.version).toBe("0.1.4");
     expect(pkg.license).toBe("Apache-2.0");
     expect(pkg.private).toBe(true);
     expect(pkg.type).toBe("module");
@@ -362,7 +362,7 @@ describe("license and user-visible version disclosure", () => {
       expect(notices).toContain(component);
     }
     for (const userDocument of [readme, readmeZh]) {
-      expect(userDocument).toContain("Flightdeck 0.1.3");
+      expect(userDocument).toContain("Flightdeck 0.1.4");
       expect(userDocument).toContain("Apache License 2.0");
       expect(userDocument).not.toMatch(/dsh-flightdeck-\d/);
       expect(userDocument).not.toContain("31fdd22a4265aef3107d9fca05854bea78a9af10");
@@ -379,11 +379,13 @@ describe("license and user-visible version disclosure", () => {
     expect(testing).toContain("129 tests across 8 files");
     expect(testing).toContain("125 passed, 4 failed");
     expect(testing).toContain("Error: listen EPERM: operation not permitted 127.0.0.1");
-    expect(structure).toContain("dsh-flightdeck-0.1.3-dsh-0.1.0-rc.7-windows-x64-setup.exe");
+    expect(structure).toContain("dsh-flightdeck-0.1.4-dsh-0.1.0-rc.7-windows-x64-setup.exe");
     expect(structure).toContain("Draft Release");
+    const currentPkg = parsePackageJson(await readRepositoryFile("package.json"));
+    const releaseNotesPath = `docs/releases/v${currentPkg.version}.md`;
     const trackedReleaseNotes = execFileSync(
       "git",
-      ["ls-files", "docs/releases/v0.1.3.md"],
+      ["ls-files", releaseNotesPath],
       { cwd: REPOSITORY_ROOT, encoding: "utf8" },
     ).trim();
     expect(trackedReleaseNotes).toBe("");
@@ -405,7 +407,7 @@ describe("package-lock.json", () => {
     expect(lock.lockfileVersion).toBe(3);
     expect(lock.name).toBe(pkg.name);
     expect(lock.version).toBe(pkg.version);
-    expect(lockEntryVersion(lock, "")).toBe("0.1.3");
+    expect(lockEntryVersion(lock, "")).toBe(pkg.version);
   });
 
   it("locks the exact pinned runtime inputs", async () => {
