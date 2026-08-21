@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -381,7 +381,12 @@ describe("license and user-visible version disclosure", () => {
     expect(testing).toContain("Error: listen EPERM: operation not permitted 127.0.0.1");
     expect(structure).toContain("dsh-flightdeck-0.1.3-dsh-0.1.0-rc.7-windows-x64-setup.exe");
     expect(structure).toContain("Draft Release");
-    expect(existsSync(join(REPOSITORY_ROOT, "docs/releases/v0.1.3.md"))).toBe(false);
+    const trackedReleaseNotes = execFileSync(
+      "git",
+      ["ls-files", "docs/releases/v0.1.3.md"],
+      { cwd: REPOSITORY_ROOT, encoding: "utf8" },
+    ).trim();
+    expect(trackedReleaseNotes).toBe("");
     expect(index).toContain('join(app.getAppPath(), "node_modules", "@deepseek-ai", "dsh", "package.json")');
     expect(index).toContain('replaceAll("__FLIGHTDECK_VERSION__"');
     expect(index).toContain("app.getVersion()");
